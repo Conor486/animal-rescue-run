@@ -579,14 +579,23 @@ class GameScene extends Phaser.Scene {
     // Camera fade in
     this.cameras.main.fadeIn(400);
 
-    // Particle emitter (Phaser 3.60+ API)
-    this.collectEmitter = this.add.particles(0, 0, 'particle', {
-      speed: { min: 50, max: 150 },
-      scale: { start: 1.5, end: 0 },
-      lifespan: 400,
-      tint: [0xffd700, 0xff6ec7, 0x7ed957, 0x00d4ff],
-      emitting: false,
-    });
+    // Visual effects (no particles - using tweens instead for compatibility)
+    this.collectEmitter = {
+      emitParticleAt: (x, y) => {
+        for (let i = 0; i < 6; i++) {
+          const star = this.add.text(x, y, '✨', { fontSize: '14px' }).setDepth(50);
+          this.tweens.add({
+            targets: star,
+            x: x + (Math.random() - 0.5) * 80,
+            y: y - 30 - Math.random() * 50,
+            alpha: 0,
+            scale: 0.3,
+            duration: 500,
+            onComplete: () => star.destroy()
+          });
+        }
+      }
+    };
   }
 
   generateLevel() {
@@ -1106,16 +1115,22 @@ class VictoryScene extends Phaser.Scene {
     }).setOrigin(0.5);
     btn.on('pointerup', () => { this.scene.start('Menu'); });
 
-    // Confetti particles (Phaser 3.60+ API)
-    this.add.particles(w/2, -20, 'particle', {
-      speed: { min: 30, max: 120 },
-      angle: { min: 60, max: 120 },
-      scale: { start: 2, end: 0 },
-      lifespan: 3000,
-      tint: [0xffd700, 0xff6b6b, 0x7ed957, 0x00d4ff, 0xff6ec7],
-      frequency: 80,
-      emitZone: { source: new Phaser.Geom.Rectangle(-w/2, 0, w, 1), type: 'random' },
-    });
+    // Confetti effect using tweens
+    const confettiEmojis = ['🎉', '⭐', '🌟', '✨', '💛', '💚'];
+    for (let i = 0; i < 40; i++) {
+      this.time.delayedCall(i * 100, () => {
+        const emoji = confettiEmojis[Math.floor(Math.random() * confettiEmojis.length)];
+        const star = this.add.text(Math.random() * w, -20, emoji, { fontSize: '20px' });
+        this.tweens.add({
+          targets: star,
+          y: h + 20,
+          x: star.x + (Math.random() - 0.5) * 100,
+          rotation: Math.random() * 6,
+          duration: 2000 + Math.random() * 1500,
+          onComplete: () => star.destroy()
+        });
+      });
+    }
 
     this.cameras.main.fadeIn(500);
   }
