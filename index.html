@@ -4,1165 +4,440 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
 <title>Animal Rescue Run! 🐾</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; touch-action: none; }
-#game-container { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-canvas { display: block; max-width: 100%; image-rendering: pixelated; }
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;touch-action:none}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body>
 <div id="game-container"></div>
 <script>
-// ============================================================
-// SPRITE GENERATOR — Creates pixel art sprites via Canvas
-// ============================================================
-class SpriteGenerator {
-  static generateAll(scene) {
-    this.makePlayer(scene);
-    this.makeTiles(scene);
-    this.makeAnimals(scene);
-    this.makeEnemies(scene);
-    this.makeCollectible(scene);
-    this.makeParticle(scene);
-    this.makeBackground(scene);
-    this.makeFlag(scene);
-    this.makeHeart(scene);
-    this.makeButtons(scene);
-  }
-
-  static px(ctx, x, y, w, h, color) {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, w || 1, h || 1);
-  }
-
-  static makePlayer(scene) {
-    // Player spritesheet: 4 frames (idle, run1, run2, jump) — 32x32 each
-    const c = document.createElement('canvas');
-    c.width = 128; c.height = 32;
-    const ctx = c.getContext('2d');
-    const skin = '#ffcc99', hair = '#8B4513', shirt = '#e74c3c', pants = '#3498db', boots = '#5d4037', eye = '#222';
-    
-    for (let f = 0; f < 4; f++) {
-      const ox = f * 32;
-      // Hair
-      for (let dx = 10; dx < 22; dx++) { this.px(ctx, ox+dx, 4, 1, 4, hair); }
-      for (let dx = 8; dx < 24; dx++) { this.px(ctx, ox+dx, 3, 1, 2, hair); }
-      // Head
-      for (let dx = 10; dx < 22; dx++) for (let dy = 7; dy < 16; dy++) this.px(ctx, ox+dx, dy, 1, 1, skin);
-      // Eyes
-      this.px(ctx, ox+14, 10, 2, 2, eye); this.px(ctx, ox+18, 10, 2, 2, eye);
-      // Eye shine
-      this.px(ctx, ox+14, 10, 1, 1, '#fff'); this.px(ctx, ox+18, 10, 1, 1, '#fff');
-      // Mouth
-      this.px(ctx, ox+15, 13, 3, 1, '#c0392b');
-      // Cape
-      const capeOff = f === 3 ? 3 : (f % 2) * 1;
-      ctx.fillStyle = '#e74c3c';
-      ctx.beginPath();
-      ctx.moveTo(ox+10, 16); ctx.lineTo(ox+6-capeOff, 26); ctx.lineTo(ox+12, 24); ctx.fill();
-      // Body/shirt
-      for (let dx = 10; dx < 22; dx++) for (let dy = 16; dy < 22; dy++) this.px(ctx, ox+dx, dy, 1, 1, shirt);
-      // Belt
-      for (let dx = 10; dx < 22; dx++) this.px(ctx, ox+dx, 21, 1, 1, '#f39c12');
-      this.px(ctx, ox+15, 21, 2, 1, '#ffd700');
-      // Arms
-      const armOff = f === 1 ? -1 : f === 2 ? 1 : 0;
-      for (let dy = 16; dy < 21; dy++) { this.px(ctx, ox+8, dy+armOff, 2, 1, skin); this.px(ctx, ox+22, dy-armOff, 2, 1, skin); }
-      // Legs/pants
-      if (f === 0 || f === 3) { // idle/jump
-        for (let dy = 22; dy < 28; dy++) { this.px(ctx, ox+11, dy, 4, 1, pants); this.px(ctx, ox+17, dy, 4, 1, pants); }
-        this.px(ctx, ox+10, 28, 5, 2, boots); this.px(ctx, ox+17, 28, 5, 2, boots);
-      } else if (f === 1) { // run frame 1
-        for (let dy = 22; dy < 28; dy++) { this.px(ctx, ox+10, dy, 4, 1, pants); this.px(ctx, ox+18, dy-1, 4, 1, pants); }
-        this.px(ctx, ox+9, 28, 5, 2, boots); this.px(ctx, ox+18, 27, 5, 2, boots);
-      } else { // run frame 2
-        for (let dy = 22; dy < 28; dy++) { this.px(ctx, ox+12, dy-1, 4, 1, pants); this.px(ctx, ox+16, dy, 4, 1, pants); }
-        this.px(ctx, ox+12, 27, 5, 2, boots); this.px(ctx, ox+15, 28, 5, 2, boots);
-      }
-    }
-    scene.textures.addSpriteSheet('player', c, { frameWidth: 32, frameHeight: 32 });
-  }
-
-  static makeTiles(scene) {
-    const themes = [
-      { name: 'grass', top: '#7bc95e', mid: '#5a9c3e', dirt: '#8B6914', dirtDark: '#6b5010' },
-      { name: 'forest', top: '#4a7a3a', mid: '#3a5a2e', dirt: '#4a3728', dirtDark: '#3a2a1a' },
-      { name: 'cave', top: '#5050aa', mid: '#3d3d6a', dirt: '#2a2a4a', dirtDark: '#1a1a3e' },
-      { name: 'snow', top: '#f0f5fa', mid: '#dde8f2', dirt: '#c0d0e0', dirtDark: '#a0b8cc' },
-      { name: 'volcano', top: '#7a4a32', mid: '#6a3a22', dirt: '#4a2a1a', dirtDark: '#3a1a0a' },
-    ];
-
-    themes.forEach(t => {
-      // Ground tile 32x32
-      const c = document.createElement('canvas');
-      c.width = 32; c.height = 32;
-      const ctx = c.getContext('2d');
-      // Dirt body
-      ctx.fillStyle = t.dirt;
-      ctx.fillRect(0, 0, 32, 32);
-      // Dark patches
-      for (let i = 0; i < 8; i++) {
-        this.px(ctx, Math.random()*28|0, 8+Math.random()*22|0, 3, 2, t.dirtDark);
-      }
-      // Top grass
-      ctx.fillStyle = t.mid;
-      ctx.fillRect(0, 0, 32, 8);
-      ctx.fillStyle = t.top;
-      ctx.fillRect(0, 0, 32, 4);
-      // Grass detail
-      for (let x = 0; x < 32; x += 4) {
-        const h = 2 + (Math.random() * 3 | 0);
-        this.px(ctx, x, 0, 2, h, t.top);
-      }
-      scene.textures.addImage(`tile-${t.name}`, c);
-
-      // Platform tile (no bottom dirt)
-      const cp = document.createElement('canvas');
-      cp.width = 32; cp.height = 16;
-      const ctxp = cp.getContext('2d');
-      ctxp.fillStyle = t.dirt;
-      ctxp.fillRect(0, 0, 32, 16);
-      ctxp.fillStyle = t.mid;
-      ctxp.fillRect(0, 0, 32, 6);
-      ctxp.fillStyle = t.top;
-      ctxp.fillRect(0, 0, 32, 3);
-      scene.textures.addImage(`plat-${t.name}`, cp);
-    });
-  }
-
-  static makeAnimals(scene) {
-    const animals = [
-      { name: 'bunny', body: '#f5f5dc', ear: '#ffb6c1', eye: '#333', size: 20 },
-      { name: 'fox', body: '#ff8c00', belly: '#ffd700', ear: '#333', eye: '#222', size: 20 },
-      { name: 'bird', body: '#4fc3f7', wing: '#0288d1', eye: '#222', beak: '#ff9800', size: 18 },
-      { name: 'frog', body: '#66bb6a', belly: '#a5d6a7', eye: '#222', size: 18 },
-      { name: 'cat', body: '#9e9e9e', ear: '#f48fb1', eye: '#4caf50', size: 20 },
-      { name: 'panda', body: '#fff', patch: '#222', eye: '#222', size: 22 },
-      { name: 'penguin', body: '#333', belly: '#fff', beak: '#ff9800', eye: '#222', size: 20 },
-      { name: 'parrot', body: '#f44336', wing: '#4caf50', eye: '#222', beak: '#ffd700', size: 18 },
-    ];
-
-    animals.forEach(a => {
-      const c = document.createElement('canvas');
-      c.width = 24; c.height = 24;
-      const ctx = c.getContext('2d');
-      const cx = 12, cy = 12, r = a.size / 2;
-
-      // Body
-      ctx.fillStyle = a.body;
-      ctx.beginPath(); ctx.arc(cx, cy+1, r, 0, Math.PI*2); ctx.fill();
-
-      // Belly
-      if (a.belly) {
-        ctx.fillStyle = a.belly;
-        ctx.beginPath(); ctx.arc(cx, cy+3, r*0.6, 0, Math.PI*2); ctx.fill();
-      }
-      if (a.patch) {
-        ctx.fillStyle = a.patch;
-        ctx.beginPath(); ctx.arc(cx-3, cy-2, 4, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx+3, cy-2, 4, 0, Math.PI*2); ctx.fill();
-      }
-      if (a.wing) {
-        ctx.fillStyle = a.wing;
-        ctx.beginPath(); ctx.ellipse(cx+5, cy+2, 5, 3, 0.3, 0, Math.PI*2); ctx.fill();
-      }
-      // Ears
-      if (a.name === 'bunny') {
-        ctx.fillStyle = a.body; ctx.fillRect(cx-5, cy-12, 3, 8); ctx.fillRect(cx+2, cy-12, 3, 8);
-        ctx.fillStyle = a.ear; ctx.fillRect(cx-4, cy-11, 1, 6); ctx.fillRect(cx+3, cy-11, 1, 6);
-      }
-      if (a.name === 'cat') {
-        ctx.fillStyle = a.body;
-        ctx.beginPath(); ctx.moveTo(cx-7, cy-3); ctx.lineTo(cx-4, cy-9); ctx.lineTo(cx-1, cy-3); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(cx+1, cy-3); ctx.lineTo(cx+4, cy-9); ctx.lineTo(cx+7, cy-3); ctx.fill();
-        ctx.fillStyle = a.ear;
-        ctx.beginPath(); ctx.moveTo(cx-6, cy-3); ctx.lineTo(cx-4, cy-7); ctx.lineTo(cx-2, cy-3); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(cx+2, cy-3); ctx.lineTo(cx+4, cy-7); ctx.lineTo(cx+6, cy-3); ctx.fill();
-      }
-      if (a.beak) {
-        ctx.fillStyle = a.beak;
-        ctx.beginPath(); ctx.moveTo(cx+r-1, cy); ctx.lineTo(cx+r+4, cy+1); ctx.lineTo(cx+r-1, cy+3); ctx.fill();
-      }
-      // Eyes
-      ctx.fillStyle = a.eye || '#222';
-      ctx.beginPath(); ctx.arc(cx-3, cy-2, 2, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx+3, cy-2, 2, 0, Math.PI*2); ctx.fill();
-      // Eye shine
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(cx-3, cy-3, 0.8, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx+3, cy-3, 0.8, 0, Math.PI*2); ctx.fill();
-
-      scene.textures.addImage(`animal-${a.name}`, c);
-    });
-  }
-
-  static makeEnemies(scene) {
-    const enemies = [
-      { name: 'slime', color: '#8bc34a', eye: '#fff', pupil: '#333' },
-      { name: 'bat', color: '#7b1fa2', eye: '#ff5722', wing: '#9c27b0' },
-      { name: 'spike', color: '#f44336', body: '#b71c1c' },
-    ];
-    enemies.forEach(e => {
-      const c = document.createElement('canvas');
-      c.width = 28; c.height = 28;
-      const ctx = c.getContext('2d');
-      if (e.name === 'slime') {
-        ctx.fillStyle = e.color;
-        ctx.beginPath(); ctx.ellipse(14, 18, 12, 8, 0, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(14, 14, 10, 10, 0, Math.PI, Math.PI*2); ctx.fill();
-        // Darker bottom
-        ctx.fillStyle = '#689f38';
-        ctx.beginPath(); ctx.ellipse(14, 20, 10, 4, 0, 0, Math.PI); ctx.fill();
-        // Eyes
-        ctx.fillStyle = e.eye;
-        ctx.beginPath(); ctx.arc(10, 12, 3, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(18, 12, 3, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = e.pupil;
-        ctx.beginPath(); ctx.arc(11, 12, 1.5, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(19, 12, 1.5, 0, Math.PI*2); ctx.fill();
-      } else if (e.name === 'bat') {
-        // Wings
-        ctx.fillStyle = e.wing;
-        ctx.beginPath(); ctx.ellipse(4, 14, 6, 8, -0.3, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(24, 14, 6, 8, 0.3, 0, Math.PI*2); ctx.fill();
-        // Body
-        ctx.fillStyle = e.color;
-        ctx.beginPath(); ctx.arc(14, 14, 7, 0, Math.PI*2); ctx.fill();
-        // Eyes
-        ctx.fillStyle = e.eye;
-        ctx.beginPath(); ctx.arc(11, 12, 2, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(17, 12, 2, 0, Math.PI*2); ctx.fill();
-        // Fangs
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(12, 18, 1, 3); ctx.fillRect(15, 18, 1, 3);
-      } else {
-        // Spike ball
-        ctx.fillStyle = e.body;
-        ctx.beginPath(); ctx.arc(14, 14, 10, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = e.color;
-        for (let a = 0; a < Math.PI*2; a += Math.PI/4) {
-          ctx.beginPath();
-          ctx.moveTo(14 + Math.cos(a)*7, 14 + Math.sin(a)*7);
-          ctx.lineTo(14 + Math.cos(a-0.2)*12, 14 + Math.sin(a-0.2)*12);
-          ctx.lineTo(14 + Math.cos(a+0.2)*12, 14 + Math.sin(a+0.2)*12);
-          ctx.fill();
-        }
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(11, 12, 2, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(17, 12, 2, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#333';
-        ctx.beginPath(); ctx.arc(12, 12, 1, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(18, 12, 1, 0, Math.PI*2); ctx.fill();
-      }
-      scene.textures.addImage(`enemy-${e.name}`, c);
-    });
-  }
-
-  static makeCollectible(scene) {
-    const c = document.createElement('canvas');
-    c.width = 16; c.height = 16;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#ffd700';
-    ctx.beginPath(); ctx.arc(8, 8, 6, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#ffeb3b';
-    ctx.beginPath(); ctx.arc(7, 6, 3, 0, Math.PI*2); ctx.fill();
-    scene.textures.addImage('coin', c);
-  }
-
-  static makeParticle(scene) {
-    const c = document.createElement('canvas');
-    c.width = 8; c.height = 8;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(4, 4, 3, 0, Math.PI*2); ctx.fill();
-    scene.textures.addImage('particle', c);
-  }
-
-  static makeBackground(scene) {
-    const bgs = [
-      { name: 'bg-meadow', sky1: '#87CEEB', sky2: '#e8f5e9', hills: '#66bb6a', hillsDark: '#4caf50' },
-      { name: 'bg-forest', sky1: '#2e4a2e', sky2: '#1a3a1a', hills: '#2d5a27', hillsDark: '#1a472a' },
-      { name: 'bg-cave', sky1: '#0d0d2b', sky2: '#1a1a3e', hills: '#2a2a5a', hillsDark: '#1a1a4a' },
-      { name: 'bg-snow', sky1: '#b8d4e3', sky2: '#e0eaf2', hills: '#d0dde8', hillsDark: '#b0c4d4' },
-      { name: 'bg-volcano', sky1: '#2d1b0e', sky2: '#5a2a10', hills: '#8B4513', hillsDark: '#6a3410' },
-    ];
-
-    bgs.forEach(b => {
-      const c = document.createElement('canvas');
-      c.width = 400; c.height = 300;
-      const ctx = c.getContext('2d');
-      const g = ctx.createLinearGradient(0, 0, 0, 300);
-      g.addColorStop(0, b.sky1); g.addColorStop(1, b.sky2);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, 400, 300);
-      // Far hills
-      ctx.fillStyle = b.hillsDark;
-      ctx.beginPath(); ctx.moveTo(0, 250);
-      for (let x = 0; x <= 400; x += 20) ctx.lineTo(x, 220 + Math.sin(x*0.015)*30 + Math.sin(x*0.03)*15);
-      ctx.lineTo(400, 300); ctx.lineTo(0, 300); ctx.fill();
-      // Near hills
-      ctx.fillStyle = b.hills;
-      ctx.beginPath(); ctx.moveTo(0, 270);
-      for (let x = 0; x <= 400; x += 20) ctx.lineTo(x, 250 + Math.sin(x*0.02+1)*20 + Math.sin(x*0.04)*10);
-      ctx.lineTo(400, 300); ctx.lineTo(0, 300); ctx.fill();
-
-      if (b.name === 'bg-meadow') {
-        // Clouds
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        [[60,50],[180,30],[320,60]].forEach(([cx,cy]) => {
-          ctx.beginPath(); ctx.ellipse(cx,cy,35,14,0,0,Math.PI*2); ctx.fill();
-          ctx.beginPath(); ctx.ellipse(cx+20,cy-6,25,12,0,0,Math.PI*2); ctx.fill();
-        });
-      }
-      if (b.name === 'bg-cave') {
-        // Crystal glows
-        for (let i = 0; i < 20; i++) {
-          ctx.fillStyle = `rgba(100,100,255,${0.2+Math.random()*0.4})`;
-          ctx.beginPath(); ctx.arc(Math.random()*400, Math.random()*300, 1+Math.random()*3, 0, Math.PI*2); ctx.fill();
-        }
-      }
-      if (b.name === 'bg-volcano') {
-        // Lava glow
-        ctx.fillStyle = 'rgba(255,100,0,0.15)';
-        ctx.beginPath(); ctx.ellipse(200, 280, 200, 40, 0, 0, Math.PI*2); ctx.fill();
-      }
-      if (b.name === 'bg-snow') {
-        // Snowflakes
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        for (let i = 0; i < 30; i++) {
-          ctx.beginPath(); ctx.arc(Math.random()*400, Math.random()*250, 1+Math.random()*2, 0, Math.PI*2); ctx.fill();
-        }
-      }
-      scene.textures.addImage(b.name, c);
-    });
-  }
-
-  static makeFlag(scene) {
-    const c = document.createElement('canvas');
-    c.width = 32; c.height = 48;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#8B4513'; ctx.fillRect(2, 0, 4, 48);
-    ctx.fillStyle = '#4caf50';
-    ctx.beginPath(); ctx.moveTo(6, 2); ctx.lineTo(28, 10); ctx.lineTo(6, 18); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.fillText('🐾', 10, 14);
-    scene.textures.addImage('flag', c);
-  }
-
-  static makeHeart(scene) {
-    const c = document.createElement('canvas');
-    c.width = 16; c.height = 16;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#e74c3c';
-    ctx.beginPath();
-    ctx.moveTo(8, 14); ctx.bezierCurveTo(1, 8, 1, 2, 5, 2);
-    ctx.bezierCurveTo(7, 2, 8, 4, 8, 4);
-    ctx.bezierCurveTo(8, 4, 9, 2, 11, 2);
-    ctx.bezierCurveTo(15, 2, 15, 8, 8, 14);
-    ctx.fill();
-    ctx.fillStyle = '#ff6b6b';
-    ctx.beginPath(); ctx.arc(5, 5, 1.5, 0, Math.PI*2); ctx.fill();
-    scene.textures.addImage('heart', c);
-  }
-
-  static makeButtons(scene) {
-    ['left','right','jump'].forEach(name => {
-      const c = document.createElement('canvas');
-      c.width = 64; c.height = 64;
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-      ctx.lineWidth = 2;
-      if (name === 'jump') {
-        ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('JUMP', 32, 36);
-      } else {
-        ctx.beginPath(); ctx.roundRect(2, 2, 60, 60, 14); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.font = '28px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText(name === 'left' ? '◀' : '▶', 32, 40);
-      }
-      scene.textures.addImage(`btn-${name}`, c);
-    });
-  }
-}
-
-// ============================================================
-// LEVEL DATA
-// ============================================================
 const LEVELS = [
-  {
-    name: 'Sunny Meadow', theme: 'grass', bg: 'bg-meadow',
-    animals: ['bunny', 'fox', 'bird'], enemies: ['slime'],
-    required: 5, length: 3500, music: 'happy',
-  },
-  {
-    name: 'Mystic Forest', theme: 'forest', bg: 'bg-forest',
-    animals: ['fox', 'cat', 'bird'], enemies: ['slime', 'bat'],
-    required: 6, length: 4200, music: 'mysterious',
-  },
-  {
-    name: 'Crystal Caves', theme: 'cave', bg: 'bg-cave',
-    animals: ['frog', 'cat', 'panda'], enemies: ['bat', 'spike'],
-    required: 7, length: 4800, music: 'eerie',
-  },
-  {
-    name: 'Snowy Peaks', theme: 'snow', bg: 'bg-snow',
-    animals: ['penguin', 'bunny', 'panda'], enemies: ['spike', 'bat'],
-    required: 7, length: 5000, music: 'calm',
-  },
-  {
-    name: 'Volcano Island', theme: 'volcano', bg: 'bg-volcano',
-    animals: ['parrot', 'frog', 'fox'], enemies: ['slime', 'bat', 'spike'],
-    required: 9, length: 5800, music: 'intense',
-  },
+  { name:'Sunny Meadow', sky:0x87CEEB, ground:0x5a9c3e, groundTop:0x7bc95e, dirt:0x8B6914,
+    animals:['🐰','🦊','🐦'], animalNames:['Bunny','Fox','Bird'], enemies:['slime'],
+    required:5, length:3500 },
+  { name:'Mystic Forest', sky:0x2e4a2e, ground:0x3a5a2e, groundTop:0x4a7a3a, dirt:0x4a3728,
+    animals:['🦊','🐱','🐦'], animalNames:['Fox','Cat','Bird'], enemies:['slime','bat'],
+    required:6, length:4200 },
+  { name:'Crystal Caves', sky:0x0d0d2b, ground:0x3d3d6a, groundTop:0x5050aa, dirt:0x2a2a4a,
+    animals:['🐸','🐱','🐼'], animalNames:['Frog','Cat','Panda'], enemies:['bat','spike'],
+    required:7, length:4800 },
+  { name:'Snowy Peaks', sky:0xb8d4e3, ground:0xdde8f2, groundTop:0xf0f5fa, dirt:0xc0d0e0,
+    animals:['🐧','🐰','🐼'], animalNames:['Penguin','Bunny','Panda'], enemies:['spike','bat'],
+    required:7, length:5000 },
+  { name:'Volcano Island', sky:0x5a2a10, ground:0x6a3a22, groundTop:0x7a4a32, dirt:0x4a2a1a,
+    animals:['🦜','🐸','🦊'], animalNames:['Parrot','Frog','Fox'], enemies:['slime','bat','spike'],
+    required:9, length:5800 },
 ];
 
-// ============================================================
-// BOOT SCENE
-// ============================================================
 class BootScene extends Phaser.Scene {
-  constructor() { super('Boot'); }
-  create() {
-    SpriteGenerator.generateAll(this);
+  constructor(){ super('Boot'); }
+  create(){
+    var g = this.make.graphics({add:false});
+
+    // Player spritesheet 4 frames
+    g.clear();
+    for(var f=0;f<4;f++){
+      var ox=f*32;
+      g.fillStyle(0xe74c3c); g.fillRect(ox+10,16,12,8);
+      g.fillStyle(0xffcc99); g.fillCircle(ox+16,11,7);
+      g.fillStyle(0x8B4513); g.fillRect(ox+9,3,14,5);
+      g.fillStyle(0x222222); g.fillCircle(ox+14,10,1.5); g.fillCircle(ox+19,10,1.5);
+      g.fillStyle(0xc0392b); g.fillTriangle(ox+10,16, ox+5-(f%2)*2,26, ox+12,24);
+      g.fillStyle(0x3498db);
+      var lo = f===1?-1:f===2?1:0;
+      g.fillRect(ox+11,22,4,6+lo); g.fillRect(ox+17,22,4,6-lo);
+      g.fillStyle(0x5d4037); g.fillRect(ox+10,28+lo,5,3); g.fillRect(ox+17,28-lo,5,3);
+      g.fillStyle(0xf39c12); g.fillRect(ox+10,21,12,1);
+    }
+    g.generateTexture('player_sheet',128,32);
+
+    LEVELS.forEach(function(l,i){
+      g.clear();
+      g.fillStyle(l.dirt); g.fillRect(0,0,32,32);
+      g.fillStyle(l.ground); g.fillRect(0,0,32,10);
+      g.fillStyle(l.groundTop); g.fillRect(0,0,32,5);
+      g.generateTexture('tile_'+i,32,32);
+      g.clear();
+      g.fillStyle(l.dirt); g.fillRect(0,0,32,16);
+      g.fillStyle(l.ground); g.fillRect(0,0,32,8);
+      g.fillStyle(l.groundTop); g.fillRect(0,0,32,4);
+      g.generateTexture('plat_'+i,32,16);
+    });
+
+    g.clear(); g.fillStyle(0x8bc34a); g.fillCircle(14,14,10); g.fillStyle(0x689f38); g.fillCircle(14,18,8);
+    g.fillStyle(0xffffff); g.fillCircle(10,11,3); g.fillCircle(18,11,3);
+    g.fillStyle(0x333333); g.fillCircle(11,11,1.5); g.fillCircle(19,11,1.5);
+    g.generateTexture('enemy_slime',28,28);
+
+    g.clear(); g.fillStyle(0x9c27b0); g.fillEllipse(4,14,10,14); g.fillEllipse(24,14,10,14);
+    g.fillStyle(0x7b1fa2); g.fillCircle(14,14,7);
+    g.fillStyle(0xff5722); g.fillCircle(11,12,2); g.fillCircle(17,12,2);
+    g.fillStyle(0xffffff); g.fillRect(12,18,1,3); g.fillRect(15,18,1,3);
+    g.generateTexture('enemy_bat',28,28);
+
+    g.clear(); g.fillStyle(0xb71c1c); g.fillCircle(14,14,10);
+    g.fillStyle(0xf44336); g.fillCircle(14,14,7);
+    g.fillStyle(0xffffff); g.fillCircle(11,12,2); g.fillCircle(17,12,2);
+    g.fillStyle(0x333333); g.fillCircle(12,12,1); g.fillCircle(18,12,1);
+    g.generateTexture('enemy_spike',28,28);
+
+    g.clear(); g.fillStyle(0xffd700); g.fillCircle(8,8,6); g.fillStyle(0xffeb3b); g.fillCircle(7,6,3);
+    g.generateTexture('coin',16,16);
+
+    g.clear(); g.fillStyle(0xe74c3c); g.fillCircle(5,5,4); g.fillCircle(11,5,4); g.fillTriangle(1,7,8,15,15,7);
+    g.generateTexture('heart',16,16);
+
+    g.clear(); g.fillStyle(0x8B4513); g.fillRect(2,0,4,40); g.fillStyle(0x4caf50); g.fillTriangle(6,2,28,12,6,22);
+    g.generateTexture('flag',32,42);
+
+    g.clear(); g.fillStyle(0xffffff,0.15); g.fillRoundedRect(2,2,60,60,14);
+    g.lineStyle(2,0xffffff,0.3); g.strokeRoundedRect(2,2,60,60,14);
+    g.generateTexture('btn_rect',64,64);
+
+    g.clear(); g.fillStyle(0xffffff,0.15); g.fillCircle(32,32,30);
+    g.lineStyle(2,0xffffff,0.3); g.strokeCircle(32,32,30);
+    g.generateTexture('btn_circle',64,64);
+
+    g.destroy();
+
+    // Generate 4 individual player frame textures instead of spritesheet
+    for(var fi=0;fi<4;fi++){
+      var pg=this.make.graphics({add:false});
+      pg.fillStyle(0xe74c3c); pg.fillRect(10,16,12,8);
+      pg.fillStyle(0xffcc99); pg.fillCircle(16,11,7);
+      pg.fillStyle(0x8B4513); pg.fillRect(9,3,14,5);
+      pg.fillStyle(0x222222); pg.fillCircle(14,10,1.5); pg.fillCircle(19,10,1.5);
+      pg.fillStyle(0xc0392b); pg.fillTriangle(10,16,5-(fi%2)*2,26,12,24);
+      pg.fillStyle(0x3498db);
+      var flo=fi===1?-1:fi===2?1:0;
+      pg.fillRect(11,22,4,6+flo); pg.fillRect(17,22,4,6-flo);
+      pg.fillStyle(0x5d4037); pg.fillRect(10,28+flo,5,3); pg.fillRect(17,28-flo,5,3);
+      pg.fillStyle(0xf39c12); pg.fillRect(10,21,12,1);
+      pg.generateTexture('pf'+fi,32,32);
+      pg.destroy();
+    }
     this.scene.start('Menu');
   }
 }
 
-// ============================================================
-// MENU SCENE
-// ============================================================
 class MenuScene extends Phaser.Scene {
-  constructor() { super('Menu'); }
-  create() {
-    const { width: w, height: h } = this.cameras.main;
-    // Background
-    this.add.image(w/2, h/2, 'bg-meadow').setDisplaySize(w, h);
-    // Overlay
-    this.add.rectangle(w/2, h/2, w, h, 0x000000, 0.4);
-
-    // Title
-    const title = this.add.text(w/2, h*0.22, '🐾 Animal Rescue Run!', {
-      fontSize: Math.min(w * 0.065, 36) + 'px',
-      fontFamily: 'Trebuchet MS, sans-serif',
-      color: '#FFD700',
-      fontStyle: 'bold',
-      stroke: '#000', strokeThickness: 4,
-    }).setOrigin(0.5);
-
-    const sub = this.add.text(w/2, h*0.34, 'Run, jump & rescue animals\nacross 5 amazing worlds!', {
-      fontSize: Math.min(w * 0.035, 18) + 'px',
-      fontFamily: 'Trebuchet MS, sans-serif',
-      color: '#fff',
-      align: 'center',
-      lineSpacing: 6,
-    }).setOrigin(0.5);
-
-    // Level icons
-    const icons = ['🌻', '🌲', '💎', '❄️', '🌋'];
-    const iconY = h * 0.48;
-    icons.forEach((ic, i) => {
-      this.add.text(w/2 - 100 + i * 50, iconY, ic, { fontSize: '24px' }).setOrigin(0.5);
-    });
-
-    // Play button
-    const btnBg = this.add.rectangle(w/2, h*0.65, 200, 52, 0x4caf50, 1).setInteractive({ useHandCursor: true });
-    btnBg.setStrokeStyle(3, 0x66bb6a);
-    const btnTxt = this.add.text(w/2, h*0.65, '🎮  START GAME', {
-      fontSize: '18px', fontFamily: 'Trebuchet MS, sans-serif', color: '#fff', fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    // Hover effects
-    btnBg.on('pointerover', () => { btnBg.setFillStyle(0x66bb6a); });
-    btnBg.on('pointerout', () => { btnBg.setFillStyle(0x4caf50); });
-    btnBg.on('pointerup', () => {
-      this.cameras.main.fadeOut(300, 0, 0, 0);
-      this.time.delayedCall(300, () => {
-        this.scene.start('Game', { level: 0, totalScore: 0, allRescued: [] });
-      });
-    });
-
-    // Controls hint
-    this.add.text(w/2, h*0.82, 'Arrow Keys / WASD or Touch Controls', {
-      fontSize: '12px', fontFamily: 'sans-serif', color: 'rgba(255,255,255,0.5)',
-    }).setOrigin(0.5);
-
-    // Floating animals
-    ['bunny','fox','penguin','parrot'].forEach((a, i) => {
-      const img = this.add.image(60 + i * (w-120)/3, h*0.9, `animal-${a}`).setScale(1.5);
-      this.tweens.add({ targets: img, y: img.y - 8, duration: 1200 + i*200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    });
-
+  constructor(){ super('Menu'); }
+  create(){
+    var w=this.cameras.main.width, h=this.cameras.main.height;
+    var bg=this.add.graphics(); bg.fillGradientStyle(0x1a2a0a,0x2d4a1e,0x87CEEB,0xffb347,1); bg.fillRect(0,0,w,h);
+    this.add.rectangle(w/2,h/2,w,h,0x000000,0.3);
+    this.add.text(w/2,h*0.18,'🐾 Animal Rescue Run!',{fontSize:Math.min(w*0.06,34)+'px',fontFamily:'Trebuchet MS,sans-serif',color:'#FFD700',fontStyle:'bold',stroke:'#000',strokeThickness:4}).setOrigin(0.5);
+    this.add.text(w/2,h*0.32,'Run, jump & rescue animals\nacross 5 amazing worlds!',{fontSize:Math.min(w*0.033,16)+'px',fontFamily:'Trebuchet MS,sans-serif',color:'#fff',align:'center',lineSpacing:6}).setOrigin(0.5);
+    ['🌻','🌲','💎','❄️','🌋'].forEach(function(ic,i){ this.add.text(w/2-100+i*50,h*0.45,ic,{fontSize:'22px'}).setOrigin(0.5); }.bind(this));
+    var btn=this.add.rectangle(w/2,h*0.6,200,50,0x4caf50).setInteractive({useHandCursor:true});
+    btn.setStrokeStyle(3,0x66bb6a);
+    this.add.text(w/2,h*0.6,'🎮  START GAME',{fontSize:'18px',fontFamily:'Trebuchet MS,sans-serif',color:'#fff',fontStyle:'bold'}).setOrigin(0.5);
+    btn.on('pointerover',function(){btn.setFillStyle(0x66bb6a);});
+    btn.on('pointerout',function(){btn.setFillStyle(0x4caf50);});
+    var self=this;
+    btn.on('pointerup',function(){ self.cameras.main.fadeOut(300,0,0,0); self.time.delayedCall(300,function(){self.scene.start('Game',{level:0,totalScore:0,allRescued:[]});}); });
+    this.add.text(w/2,h*0.75,'Arrow Keys / WASD or Touch Controls',{fontSize:'11px',fontFamily:'sans-serif',color:'rgba(255,255,255,0.4)'}).setOrigin(0.5);
     this.cameras.main.fadeIn(400);
   }
 }
 
-// ============================================================
-// MAIN GAME SCENE
-// ============================================================
 class GameScene extends Phaser.Scene {
-  constructor() { super('Game'); }
+  constructor(){ super('Game'); }
+  init(data){ this.levelIndex=data.level||0; this.totalScore=data.totalScore||0; this.allRescued=data.allRescued||[]; }
+  create(){
+    var lvl=LEVELS[this.levelIndex], w=this.cameras.main.width, h=this.cameras.main.height;
+    this.gameW=lvl.length; this.groundY=h-64; this.lvl=lvl; this.gameH=h;
+    this.physics.world.setBounds(0,0,this.gameW,h+200);
+    var bg=this.add.graphics().setScrollFactor(0);
+    bg.fillGradientStyle(lvl.sky,lvl.sky,lvl.dirt,lvl.dirt,1); bg.fillRect(0,0,w,h);
 
-  init(data) {
-    this.levelIndex = data.level || 0;
-    this.totalScore = data.totalScore || 0;
-    this.allRescued = data.allRescued || [];
-  }
-
-  create() {
-    const lvl = LEVELS[this.levelIndex];
-    const { width: w, height: h } = this.cameras.main;
-    this.gameW = lvl.length;
-    this.gameH = h;
-    this.groundY = h - 64;
-    this.lvl = lvl;
-
-    // Physics world bounds
-    this.physics.world.setBounds(0, 0, this.gameW, h + 200);
-
-    // Background (parallax)
-    this.bgImage = this.add.tileSprite(0, 0, w, h, lvl.bg).setOrigin(0, 0).setScrollFactor(0);
-
-    // Groups
-    this.platforms = this.physics.add.staticGroup();
-    this.animals = this.physics.add.group();
-    this.enemyGroup = this.physics.add.group();
-    this.coins = this.physics.add.group();
-
-    // Generate level
+    this.platforms=this.physics.add.staticGroup();
+    this.animalGroup=this.physics.add.group();
+    this.enemyGroup=this.physics.add.group();
+    this.coinGroup=this.physics.add.group();
     this.generateLevel();
 
-    // Player
-    this.player = this.physics.add.sprite(80, this.groundY - 48, 'player')
-      .setSize(18, 28).setOffset(7, 4).setCollideWorldBounds(false).setDepth(10);
+    this.player=this.physics.add.sprite(80,this.groundY-48,'pf0').setSize(18,26).setOffset(7,4).setCollideWorldBounds(false).setDepth(10);
     this.player.setGravityY(600);
 
-    // Animations
-    this.anims.create({ key: 'idle', frames: [{ key: 'player', frame: 0 }], frameRate: 1 });
-    this.anims.create({ key: 'run', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
-    this.anims.create({ key: 'jump', frames: [{ key: 'player', frame: 3 }], frameRate: 1 });
+    this.anims.create({key:'idle',frames:[{key:'pf0'}],frameRate:1});
+    this.anims.create({key:'run',frames:[{key:'pf0'},{key:'pf1'},{key:'pf2'},{key:'pf3'}],frameRate:10,repeat:-1});
+    this.anims.create({key:'jump',frames:[{key:'pf3'}],frameRate:1});
 
-    // Collisions
-    this.physics.add.collider(this.player, this.platforms);
-    this.physics.add.collider(this.enemyGroup, this.platforms);
-    this.physics.add.overlap(this.player, this.animals, this.collectAnimal, null, this);
-    this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
-    this.physics.add.overlap(this.player, this.enemyGroup, this.hitEnemy, null, this);
+    this.physics.add.collider(this.player,this.platforms);
+    this.physics.add.collider(this.enemyGroup,this.platforms);
+    this.physics.add.overlap(this.player,this.animalGroup,this.collectAnimal,null,this);
+    this.physics.add.overlap(this.player,this.coinGroup,this.collectCoin,null,this);
+    this.physics.add.overlap(this.player,this.enemyGroup,this.hitEnemy,null,this);
 
-    // Camera
-    this.cameras.main.setBounds(0, 0, this.gameW, h);
-    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    this.cameras.main.setBounds(0,0,this.gameW,h);
+    this.cameras.main.startFollow(this.player,true,0.08,0.08);
 
-    // State
-    this.rescued = 0;
-    this.score = 0;
-    this.lives = 3;
-    this.invincible = false;
-    this.isAlive = true;
-    this.levelComplete = false;
+    this.rescued=0;this.score=0;this.lives=3;this.invincible=false;this.isAlive=true;this.levelComplete=false;
 
-    // Input
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D', space: 'SPACE' });
-    this.touchInput = { left: false, right: false, jump: false };
-
-    // HUD
-    this.createHUD();
-
-    // Touch controls
-    this.createTouchControls();
-
-    // Camera fade in
-    this.cameras.main.fadeIn(400);
-
-    // Visual effects (no particles - using tweens instead for compatibility)
-    this.collectEmitter = {
-      emitParticleAt: (x, y) => {
-        for (let i = 0; i < 6; i++) {
-          const star = this.add.text(x, y, '✨', { fontSize: '14px' }).setDepth(50);
-          this.tweens.add({
-            targets: star,
-            x: x + (Math.random() - 0.5) * 80,
-            y: y - 30 - Math.random() * 50,
-            alpha: 0,
-            scale: 0.3,
-            duration: 500,
-            onComplete: () => star.destroy()
-          });
-        }
-      }
-    };
+    this.cursors=this.input.keyboard.createCursorKeys();
+    this.wasd=this.input.keyboard.addKeys({up:'W',down:'S',left:'A',right:'D',space:'SPACE'});
+    this.touchInput={left:false,right:false,jump:false};
+    this.createHUD(); this.createTouchControls(); this.cameras.main.fadeIn(400);
   }
 
-  generateLevel() {
-    const lvl = this.lvl;
-    const theme = lvl.theme;
-    const gY = this.groundY;
-
-    // Build ground segments with gaps
-    let x = 0;
-    while (x < this.gameW) {
-      const segW = 160 + Math.random() * 300;
-      const hasGap = x > 200 && Math.random() > 0.6;
-      const gapW = hasGap ? 64 + Math.random() * 80 : 0;
-
-      // Ground tiles
-      for (let tx = x; tx < x + segW && tx < this.gameW; tx += 32) {
-        const tile = this.platforms.create(tx + 16, gY + 16, `tile-${theme}`);
-        tile.setDisplaySize(32, 32).refreshBody();
-        // Fill below
-        const fill = this.add.rectangle(tx + 16, gY + 48, 32, 32, Phaser.Display.Color.HexStringToColor(
-          theme === 'grass' ? '#8B6914' : theme === 'forest' ? '#4a3728' : theme === 'cave' ? '#2a2a4a' : theme === 'snow' ? '#c0d0e0' : '#4a2a1a'
-        ).color);
+  generateLevel(){
+    var lvl=this.lvl,gY=this.groundY,li=this.levelIndex,x=0,self=this;
+    while(x<this.gameW){
+      var segW=160+Math.random()*300, hasGap=x>200&&Math.random()>0.6, gapW=hasGap?64+Math.random()*80:0;
+      for(var tx=x;tx<x+segW&&tx<this.gameW;tx+=32){
+        this.platforms.create(tx+16,gY+16,'tile_'+li).setDisplaySize(32,32).refreshBody();
+        this.add.rectangle(tx+16,gY+48,32,32,LEVELS[li].dirt);
       }
-
-      // Floating platforms
-      if (Math.random() > 0.4 && x > 100) {
-        const platX = x + Math.random() * segW * 0.6;
-        const platY = gY - 80 - Math.random() * 100;
-        const platW = 3 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < platW; i++) {
-          this.platforms.create(platX + i * 32 + 16, platY, `plat-${theme}`)
-            .setDisplaySize(32, 16).setSize(32, 16).refreshBody();
-        }
-
-        // Animal on platform sometimes
-        if (Math.random() > 0.4) {
-          const aType = Phaser.Utils.Array.GetRandom(lvl.animals);
-          const animal = this.animals.create(platX + platW * 16, platY - 20, `animal-${aType}`);
-          animal.setData('name', aType);
-          animal.body.setAllowGravity(false);
-          animal.setImmovable(true);
-          this.tweens.add({ targets: animal, y: animal.y - 8, duration: 1000 + Math.random()*500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        }
+      if(Math.random()>0.4&&x>100){
+        var px=x+Math.random()*segW*0.6,py=gY-80-Math.random()*100,pw=3+Math.floor(Math.random()*3);
+        for(var i=0;i<pw;i++) this.platforms.create(px+i*32+16,py,'plat_'+li).setDisplaySize(32,16).setSize(32,16).refreshBody();
+        if(Math.random()>0.4) this.spawnAnimal(px+pw*16,py-24);
       }
-
-      // Ground-level animals
-      if (Math.random() > 0.5) {
-        const aType = Phaser.Utils.Array.GetRandom(lvl.animals);
-        const ax = x + 40 + Math.random() * (segW - 80);
-        const animal = this.animals.create(ax, gY - 20, `animal-${aType}`);
-        animal.setData('name', aType);
-        animal.body.setAllowGravity(false);
-        animal.setImmovable(true);
-        this.tweens.add({ targets: animal, y: animal.y - 8, duration: 1000 + Math.random()*500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      if(Math.random()>0.5) this.spawnAnimal(x+40+Math.random()*(segW-80),gY-24);
+      if(Math.random()>0.3){
+        var cc=3+Math.floor(Math.random()*4),cx=x+60+Math.random()*(segW-120);
+        for(var ci=0;ci<cc;ci++){var coin=this.coinGroup.create(cx+ci*24,gY-50-Math.sin(ci*0.8)*30,'coin');coin.body.setAllowGravity(false);coin.setImmovable(true);}
       }
-
-      // Coins
-      if (Math.random() > 0.3) {
-        const coinCount = 3 + Math.floor(Math.random() * 4);
-        const coinX = x + 60 + Math.random() * (segW - 120);
-        for (let i = 0; i < coinCount; i++) {
-          const coin = this.coins.create(coinX + i * 24, gY - 50 - Math.sin(i * 0.8) * 30, 'coin');
-          coin.body.setAllowGravity(false);
-          coin.setImmovable(true);
-        }
-      }
-
-      // Enemies
-      if (x > 300 && Math.random() > 0.45) {
-        const eType = Phaser.Utils.Array.GetRandom(lvl.enemies);
-        const ex = x + 60 + Math.random() * (segW - 120);
-        const enemy = this.enemyGroup.create(ex, gY - 20, `enemy-${eType}`);
-        enemy.setData('type', eType);
-
-        if (eType === 'bat') {
-          enemy.body.setAllowGravity(false);
-          enemy.setY(gY - 80 - Math.random() * 60);
-          this.tweens.add({
-            targets: enemy, x: enemy.x + 80, duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-          });
-          this.tweens.add({
-            targets: enemy, y: enemy.y + 20, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-          });
-        } else {
-          enemy.setBounce(0);
-          enemy.setVelocityX(Phaser.Math.Between(-60, -30) * (Math.random() > 0.5 ? 1 : -1));
-          enemy.setCollideWorldBounds(false);
-        }
-      }
-
-      x += segW + gapW;
+      if(x>300&&Math.random()>0.45) this.spawnEnemy(x+60+Math.random()*(segW-120));
+      x+=segW+gapW;
     }
-
-    // Goal flag at end
-    this.flag = this.physics.add.sprite(this.gameW - 100, gY - 40, 'flag');
-    this.flag.body.setAllowGravity(false);
-    this.flag.setImmovable(true);
-    this.physics.add.overlap(this.player, this.flag, this.reachGoal, null, this);
+    this.flag=this.physics.add.sprite(this.gameW-100,gY-30,'flag');
+    this.flag.body.setAllowGravity(false);this.flag.setImmovable(true);
+    this.physics.add.overlap(this.player,this.flag,this.reachGoal,null,this);
   }
 
-  createHUD() {
-    const { width: w } = this.cameras.main;
-    const pad = 12;
+  spawnAnimal(ax,ay){
+    var lvl=this.lvl,idx=Math.floor(Math.random()*lvl.animals.length);
+    var animal=this.add.text(ax,ay,lvl.animals[idx],{fontSize:'22px'}).setOrigin(0.5).setDepth(5);
+    this.physics.add.existing(animal);animal.body.setAllowGravity(false);animal.body.setSize(20,20);
+    animal.setData('name',lvl.animalNames[idx]);this.animalGroup.add(animal);
+    this.tweens.add({targets:animal,y:ay-8,duration:1000+Math.random()*500,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+  }
 
-    // Dark HUD bar
-    this.hudBg = this.add.rectangle(w/2, 20, w, 40, 0x000000, 0.5).setScrollFactor(0).setDepth(100);
+  spawnEnemy(ex){
+    var lvl=this.lvl,gY=this.groundY,type=Phaser.Utils.Array.GetRandom(lvl.enemies);
+    var enemy=this.physics.add.sprite(ex,type==='bat'?gY-90-Math.random()*40:gY-18,'enemy_'+type);
+    enemy.setData('type',type);
+    if(type==='bat'){
+      enemy.body.setAllowGravity(false);
+      this.tweens.add({targets:enemy,x:enemy.x+80,duration:2000,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+      this.tweens.add({targets:enemy,y:enemy.y+20,duration:1500,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+    } else { enemy.setVelocityX(Phaser.Math.Between(30,60)*(Math.random()>0.5?1:-1)); }
+    this.enemyGroup.add(enemy);
+  }
 
-    this.hudLevel = this.add.text(pad, 8, `Level ${this.levelIndex+1}: ${this.lvl.name}`, {
-      fontSize: '13px', fontFamily: 'Trebuchet MS, sans-serif', color: '#fff', fontStyle: 'bold',
-    }).setScrollFactor(0).setDepth(101);
+  sparkle(x,y,em){for(var i=0;i<6;i++){var s=this.add.text(x,y,em||'✨',{fontSize:'14px'}).setDepth(50);this.tweens.add({targets:s,x:x+(Math.random()-0.5)*80,y:y-30-Math.random()*50,alpha:0,scale:0.3,duration:500,onComplete:function(){s.destroy();}});}}
 
-    this.hudRescued = this.add.text(w/2, 8, `Rescued: 0/${this.lvl.required}`, {
-      fontSize: '14px', fontFamily: 'sans-serif', color: '#FFD700', fontStyle: 'bold',
-    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
+  createHUD(){
+    var w=this.cameras.main.width;
+    this.add.rectangle(w/2,20,w,40,0x000000,0.5).setScrollFactor(0).setDepth(100);
+    this.hudLevel=this.add.text(12,8,'Level '+(this.levelIndex+1)+': '+this.lvl.name,{fontSize:'13px',fontFamily:'Trebuchet MS,sans-serif',color:'#fff',fontStyle:'bold'}).setScrollFactor(0).setDepth(101);
+    this.hudRescued=this.add.text(w/2,8,'Rescued: 0/'+this.lvl.required,{fontSize:'14px',fontFamily:'sans-serif',color:'#FFD700',fontStyle:'bold'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(101);
+    this.hudScore=this.add.text(w-12,8,'Score: 0',{fontSize:'13px',fontFamily:'sans-serif',color:'#7ed957'}).setOrigin(1,0).setScrollFactor(0).setDepth(101);
+    this.hearts=[];
+    for(var i=0;i<3;i++) this.hearts.push(this.add.image(14+i*22,30,'heart').setScale(1.2).setScrollFactor(0).setDepth(101));
+    this.add.rectangle(w/2,40,w-24,4,0x333333,0.6).setScrollFactor(0).setDepth(100);
+    this.progBar=this.add.rectangle(12,40,0,4,0x4caf50,1).setOrigin(0,0.5).setScrollFactor(0).setDepth(101);
+  }
 
-    this.hudScore = this.add.text(w - pad, 8, `Score: 0`, {
-      fontSize: '13px', fontFamily: 'sans-serif', color: '#7ed957',
-    }).setOrigin(1, 0).setScrollFactor(0).setDepth(101);
-
-    // Hearts
-    this.hearts = [];
-    for (let i = 0; i < 3; i++) {
-      const heart = this.add.image(pad + i * 22, 30, 'heart').setScale(1.2).setScrollFactor(0).setDepth(101);
-      this.hearts.push(heart);
+  createTouchControls(){
+    var w=this.cameras.main.width,h=this.cameras.main.height,y=h-50,self=this;
+    function makeBtn(bx,key,tex){
+      var b=self.add.image(bx,y,tex).setScrollFactor(0).setDepth(200).setAlpha(0.7).setInteractive();
+      b.on('pointerdown',function(){self.touchInput[key]=true;});
+      b.on('pointerup',function(){self.touchInput[key]=false;});
+      b.on('pointerout',function(){self.touchInput[key]=false;});
     }
-
-    // Progress bar
-    this.progBg = this.add.rectangle(w/2, 40, w - 24, 4, 0x333333, 0.6).setScrollFactor(0).setDepth(100);
-    this.progBar = this.add.rectangle(12, 40, 0, 4, 0x4caf50, 1).setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
+    makeBtn(60,'left','btn_rect');
+    this.add.text(60,y,'◀',{fontSize:'24px',color:'rgba(255,255,255,0.7)'}).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+    makeBtn(140,'right','btn_rect');
+    this.add.text(140,y,'▶',{fontSize:'24px',color:'rgba(255,255,255,0.7)'}).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+    makeBtn(w-60,'jump','btn_circle');
+    this.add.text(w-60,y,'JUMP',{fontSize:'12px',fontStyle:'bold',color:'rgba(255,255,255,0.7)'}).setOrigin(0.5).setScrollFactor(0).setDepth(201);
   }
 
-  createTouchControls() {
-    const { width: w, height: h } = this.cameras.main;
-    if (!this.sys.game.device.input.touch && w > 600) return; // only show on touch/small screens
-
-    const btnY = h - 50;
-    const btnAlpha = 0.7;
-
-    const leftBtn = this.add.image(60, btnY, 'btn-left').setScrollFactor(0).setDepth(200).setAlpha(btnAlpha).setInteractive();
-    const rightBtn = this.add.image(140, btnY, 'btn-right').setScrollFactor(0).setDepth(200).setAlpha(btnAlpha).setInteractive();
-    const jumpBtn = this.add.image(w - 60, btnY, 'btn-jump').setScrollFactor(0).setDepth(200).setAlpha(btnAlpha).setInteractive();
-
-    leftBtn.on('pointerdown', () => this.touchInput.left = true);
-    leftBtn.on('pointerup', () => this.touchInput.left = false);
-    leftBtn.on('pointerout', () => this.touchInput.left = false);
-
-    rightBtn.on('pointerdown', () => this.touchInput.right = true);
-    rightBtn.on('pointerup', () => this.touchInput.right = false);
-    rightBtn.on('pointerout', () => this.touchInput.right = false);
-
-    jumpBtn.on('pointerdown', () => this.touchInput.jump = true);
-    jumpBtn.on('pointerup', () => this.touchInput.jump = false);
-    jumpBtn.on('pointerout', () => this.touchInput.jump = false);
-  }
-
-  collectAnimal(player, animal) {
-    animal.destroy();
-    this.rescued++;
-    this.score += 150;
-    this.updateHUD();
-
-    this.collectEmitter.emitParticleAt(animal.x, animal.y);
-
-    // Floating text
-    const name = animal.getData('name');
-    const txt = this.add.text(animal.x, animal.y - 10, `${name} rescued! +150`, {
-      fontSize: '12px', fontFamily: 'sans-serif', color: '#FFD700', fontStyle: 'bold',
-      stroke: '#000', strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(50);
-    this.tweens.add({ targets: txt, y: txt.y - 40, alpha: 0, duration: 1200, onComplete: () => txt.destroy() });
-
-    this.allRescued.push(name);
-
-    // Show flag hint when enough rescued
-    if (this.rescued >= this.lvl.required && !this._flagShown) {
-      this._flagShown = true;
-      const hint = this.add.text(this.cameras.main.scrollX + this.cameras.main.width / 2, 60,
-        '✅ Enough animals rescued! Reach the flag! →', {
-        fontSize: '14px', fontFamily: 'sans-serif', color: '#7ed957', fontStyle: 'bold',
-        stroke: '#000', strokeThickness: 3,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-      this.tweens.add({ targets: hint, alpha: 0, duration: 3000, delay: 2000, onComplete: () => hint.destroy() });
+  collectAnimal(player,animal){
+    var name=animal.getData('name');
+    this.sparkle(animal.x,animal.y,'⭐');animal.destroy();
+    this.rescued++;this.score+=150;this.allRescued.push(name);this.updateHUD();
+    var txt=this.add.text(player.x,player.y-30,name+' rescued! +150',{fontSize:'12px',fontFamily:'sans-serif',color:'#FFD700',fontStyle:'bold',stroke:'#000',strokeThickness:2}).setOrigin(0.5).setDepth(50);
+    this.tweens.add({targets:txt,y:txt.y-40,alpha:0,duration:1200,onComplete:function(){txt.destroy();}});
+    if(this.rescued>=this.lvl.required&&!this._flagShown){
+      this._flagShown=true;
+      var hint=this.add.text(this.cameras.main.scrollX+this.cameras.main.width/2,60,'✅ Enough rescued! Reach the flag! →',{fontSize:'14px',fontFamily:'sans-serif',color:'#7ed957',fontStyle:'bold',stroke:'#000',strokeThickness:3}).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      this.tweens.add({targets:hint,alpha:0,duration:3000,delay:2000,onComplete:function(){hint.destroy();}});
     }
   }
 
-  collectCoin(player, coin) {
-    coin.destroy();
-    this.score += 25;
-    this.updateHUD();
-
-    const txt = this.add.text(coin.x, coin.y, '+25', {
-      fontSize: '10px', fontFamily: 'sans-serif', color: '#ffd700', fontStyle: 'bold',
-      stroke: '#000', strokeThickness: 2,
-    }).setOrigin(0.5);
-    this.tweens.add({ targets: txt, y: txt.y - 25, alpha: 0, duration: 600, onComplete: () => txt.destroy() });
+  collectCoin(player,coin){
+    coin.destroy();this.score+=25;this.updateHUD();
+    var t=this.add.text(coin.x,coin.y,'+25',{fontSize:'10px',color:'#ffd700',fontStyle:'bold',stroke:'#000',strokeThickness:2}).setOrigin(0.5);
+    this.tweens.add({targets:t,y:t.y-25,alpha:0,duration:600,onComplete:function(){t.destroy();}});
   }
 
-  hitEnemy(player, enemy) {
-    if (this.invincible || !this.isAlive) return;
-
-    // Stomp from above
-    if (player.body.velocity.y > 0 && player.y + player.body.height - 10 < enemy.y) {
-      player.setVelocityY(-300);
-      this.score += 100;
-      this.updateHUD();
-
-      this.collectEmitter.emitParticleAt(enemy.x, enemy.y);
-      const txt = this.add.text(enemy.x, enemy.y, '💥 +100', {
-        fontSize: '11px', fontFamily: 'sans-serif', color: '#ff6b35', fontStyle: 'bold',
-        stroke: '#000', strokeThickness: 2,
-      }).setOrigin(0.5);
-      this.tweens.add({ targets: txt, y: txt.y - 30, alpha: 0, duration: 800, onComplete: () => txt.destroy() });
+  hitEnemy(player,enemy){
+    if(this.invincible||!this.isAlive)return;
+    if(player.body.velocity.y>0&&player.y+player.body.height-10<enemy.y){
+      player.setVelocityY(-300);this.score+=100;this.updateHUD();
+      this.sparkle(enemy.x,enemy.y,'💥');
+      var t=this.add.text(enemy.x,enemy.y-10,'+100',{fontSize:'11px',color:'#ff6b35',fontStyle:'bold',stroke:'#000',strokeThickness:2}).setOrigin(0.5);
+      this.tweens.add({targets:t,y:t.y-30,alpha:0,duration:800,onComplete:function(){t.destroy();}});
       enemy.destroy();
     } else {
-      // Take damage
-      this.lives--;
-      this.invincible = true;
-      player.setVelocityY(-250);
-      player.setVelocityX(-player.flipX ? 150 : -150);
-
-      // Flash
-      this.tweens.add({
-        targets: player, alpha: 0.3, duration: 100, yoyo: true, repeat: 8,
-        onComplete: () => { player.setAlpha(1); this.invincible = false; }
-      });
-
-      // Update hearts
-      if (this.lives >= 0 && this.lives < this.hearts.length) {
-        this.tweens.add({ targets: this.hearts[this.lives], alpha: 0.2, scale: 0.5, duration: 300 });
-      }
-
-      this.cameras.main.shake(200, 0.01);
-
-      if (this.lives <= 0) {
-        this.gameOver();
-      }
+      this.lives--;this.invincible=true;var self=this;
+      player.setVelocityY(-250);player.setVelocityX(-player.flipX?150:-150);
+      this.tweens.add({targets:player,alpha:0.3,duration:100,yoyo:true,repeat:8,onComplete:function(){player.setAlpha(1);self.invincible=false;}});
+      if(this.lives>=0&&this.lives<this.hearts.length)this.tweens.add({targets:this.hearts[this.lives],alpha:0.2,scale:0.5,duration:300});
+      this.cameras.main.shake(200,0.01);
+      if(this.lives<=0)this.gameOver();
     }
   }
 
-  reachGoal(player, flag) {
-    if (this.levelComplete) return;
-    if (this.rescued < this.lvl.required) {
-      if (!this._needMore) {
-        this._needMore = true;
-        const txt = this.add.text(flag.x, flag.y - 40, `Need ${this.lvl.required - this.rescued} more animals!`, {
-          fontSize: '12px', fontFamily: 'sans-serif', color: '#ff6b6b', fontStyle: 'bold',
-          stroke: '#000', strokeThickness: 2,
-        }).setOrigin(0.5).setDepth(50);
-        this.tweens.add({ targets: txt, alpha: 0, duration: 2000, onComplete: () => { txt.destroy(); this._needMore = false; } });
-      }
-      return;
+  reachGoal(){
+    if(this.levelComplete)return;
+    if(this.rescued<this.lvl.required){
+      if(!this._needMore){this._needMore=true;
+        var t=this.add.text(this.flag.x,this.flag.y-40,'Need '+(this.lvl.required-this.rescued)+' more!',{fontSize:'12px',color:'#ff6b6b',fontStyle:'bold',stroke:'#000',strokeThickness:2}).setOrigin(0.5).setDepth(50);
+        var self=this;this.tweens.add({targets:t,alpha:0,duration:2000,onComplete:function(){t.destroy();self._needMore=false;}});
+      }return;
     }
-
-    this.levelComplete = true;
-    this.score += this.lives * 200;
-    this.physics.pause();
-
-    // Victory effects
-    for (let i = 0; i < 20; i++) {
-      this.time.delayedCall(i * 80, () => {
-        this.collectEmitter.emitParticleAt(
-          player.x - 50 + Math.random() * 100,
-          player.y - 50 + Math.random() * 50);
-      });
-    }
-
-    this.time.delayedCall(1500, () => {
-      this.cameras.main.fadeOut(500, 0, 0, 0);
-      this.time.delayedCall(500, () => {
-        this.scene.start('LevelComplete', {
-          level: this.levelIndex,
-          score: this.score,
-          totalScore: this.totalScore + this.score,
-          rescued: this.rescued,
-          lives: this.lives,
-          allRescued: this.allRescued,
-        });
-      });
+    this.levelComplete=true;this.score+=this.lives*200;this.physics.pause();var self=this;
+    for(var i=0;i<10;i++)(function(i){self.time.delayedCall(i*100,function(){self.sparkle(self.player.x-40+Math.random()*80,self.player.y-40+Math.random()*40,'🎉');});})(i);
+    this.time.delayedCall(1500,function(){self.cameras.main.fadeOut(500);
+      self.time.delayedCall(500,function(){self.scene.start('LevelComplete',{level:self.levelIndex,score:self.score,totalScore:self.totalScore+self.score,rescued:self.rescued,lives:self.lives,allRescued:self.allRescued});});
     });
   }
 
-  gameOver() {
-    this.isAlive = false;
-    this.physics.pause();
-    this.player.setTint(0xff0000);
-
-    this.cameras.main.shake(300, 0.02);
-    this.time.delayedCall(1000, () => {
-      this.cameras.main.fadeOut(500);
-      this.time.delayedCall(500, () => {
-        this.scene.start('GameOver', {
-          level: this.levelIndex,
-          score: this.score,
-          totalScore: this.totalScore,
-          allRescued: this.allRescued,
-        });
-      });
+  gameOver(){
+    this.isAlive=false;this.physics.pause();this.player.setTint(0xff0000);var self=this;
+    this.cameras.main.shake(300,0.02);
+    this.time.delayedCall(1000,function(){self.cameras.main.fadeOut(500);
+      self.time.delayedCall(500,function(){self.scene.start('GameOver',{level:self.levelIndex,totalScore:self.totalScore,allRescued:self.allRescued});});
     });
   }
 
-  updateHUD() {
-    this.hudRescued.setText(`Rescued: ${this.rescued}/${this.lvl.required}`);
-    if (this.rescued >= this.lvl.required) this.hudRescued.setColor('#7ed957');
-    this.hudScore.setText(`Score: ${this.score}`);
-
-    // Progress bar
-    const progress = Math.min(this.player.x / this.gameW, 1);
-    this.progBar.width = (this.cameras.main.width - 24) * progress;
+  updateHUD(){
+    this.hudRescued.setText('Rescued: '+this.rescued+'/'+this.lvl.required);
+    if(this.rescued>=this.lvl.required)this.hudRescued.setColor('#7ed957');
+    this.hudScore.setText('Score: '+this.score);
+    this.progBar.width=(this.cameras.main.width-24)*Math.min(this.player.x/this.gameW,1);
   }
 
-  update() {
-    if (!this.isAlive || this.levelComplete) return;
-
-    const p = this.player;
-    const onGround = p.body.blocked.down;
-    const left = this.cursors.left.isDown || this.wasd.left.isDown || this.touchInput.left;
-    const right = this.cursors.right.isDown || this.wasd.right.isDown || this.touchInput.right;
-    const jump = this.cursors.up.isDown || this.wasd.up.isDown || this.wasd.space.isDown || this.touchInput.jump;
-
-    // Movement
-    if (left) {
-      p.setVelocityX(-200);
-      p.setFlipX(true);
-    } else if (right) {
-      p.setVelocityX(200);
-      p.setFlipX(false);
-    } else {
-      p.setVelocityX(p.body.velocity.x * 0.85);
-    }
-
-    // Jump
-    if (jump && onGround) {
-      p.setVelocityY(-420);
-    }
-    // Variable jump height
-    if (!jump && p.body.velocity.y < -100) {
-      p.setVelocityY(p.body.velocity.y * 0.9);
-    }
-
-    // Animation
-    if (!onGround) {
-      p.anims.play('jump', true);
-    } else if (Math.abs(p.body.velocity.x) > 20) {
-      p.anims.play('run', true);
-    } else {
-      p.anims.play('idle', true);
-    }
-
-    // Parallax
-    this.bgImage.tilePositionX = this.cameras.main.scrollX * 0.15;
-    this.bgImage.tilePositionY = this.cameras.main.scrollY * 0.1;
-
-    // Fall death
-    if (p.y > this.gameH + 100) {
+  update(){
+    if(!this.isAlive||this.levelComplete)return;
+    var p=this.player,on=p.body.blocked.down;
+    var left=this.cursors.left.isDown||this.wasd.left.isDown||this.touchInput.left;
+    var right=this.cursors.right.isDown||this.wasd.right.isDown||this.touchInput.right;
+    var jump=this.cursors.up.isDown||this.wasd.up.isDown||this.wasd.space.isDown||this.touchInput.jump;
+    if(left){p.setVelocityX(-200);p.setFlipX(true);}
+    else if(right){p.setVelocityX(200);p.setFlipX(false);}
+    else p.setVelocityX(p.body.velocity.x*0.85);
+    if(jump&&on)p.setVelocityY(-420);
+    if(!jump&&p.body.velocity.y<-100)p.setVelocityY(p.body.velocity.y*0.9);
+    if(!on)p.anims.play('jump',true);
+    else if(Math.abs(p.body.velocity.x)>20)p.anims.play('run',true);
+    else p.anims.play('idle',true);
+    if(p.y>this.gameH+100){
       this.lives--;
-      if (this.lives >= 0 && this.lives < this.hearts.length) {
-        this.tweens.add({ targets: this.hearts[this.lives], alpha: 0.2, scale: 0.5, duration: 300 });
-      }
-      if (this.lives <= 0) {
-        this.gameOver();
-      } else {
-        p.setPosition(Math.max(this.cameras.main.scrollX + 80, 80), this.groundY - 60);
-        p.setVelocity(0, 0);
-        this.invincible = true;
-        this.tweens.add({
-          targets: p, alpha: 0.3, duration: 100, yoyo: true, repeat: 8,
-          onComplete: () => { p.setAlpha(1); this.invincible = false; }
-        });
-      }
+      if(this.lives>=0&&this.lives<this.hearts.length)this.tweens.add({targets:this.hearts[this.lives],alpha:0.2,scale:0.5,duration:300});
+      if(this.lives<=0){this.gameOver();return;}
+      p.setPosition(Math.max(this.cameras.main.scrollX+80,80),this.groundY-60);p.setVelocity(0,0);
+      this.invincible=true;var self=this;
+      this.tweens.add({targets:p,alpha:0.3,duration:100,yoyo:true,repeat:8,onComplete:function(){p.setAlpha(1);self.invincible=false;}});
     }
-
-    // Update HUD
     this.updateHUD();
   }
 }
 
-// ============================================================
-// LEVEL COMPLETE SCENE
-// ============================================================
 class LevelCompleteScene extends Phaser.Scene {
-  constructor() { super('LevelComplete'); }
-
-  init(data) { this.data_pass = data; }
-
-  create() {
-    const { width: w, height: h } = this.cameras.main;
-    const d = this.data_pass;
-
-    this.add.rectangle(w/2, h/2, w, h, 0x0a1628, 1);
-
-    this.add.text(w/2, h*0.15, '🎉', { fontSize: '52px' }).setOrigin(0.5);
-    this.add.text(w/2, h*0.28, 'Level Complete!', {
-      fontSize: '28px', fontFamily: 'Trebuchet MS, sans-serif', color: '#7ed957', fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    const lvl = LEVELS[d.level];
-    this.add.text(w/2, h*0.38, `${lvl.name} cleared!`, {
-      fontSize: '16px', fontFamily: 'sans-serif', color: 'rgba(255,255,255,0.7)',
-    }).setOrigin(0.5);
-
-    // Stars
-    const stars = d.lives >= 3 ? 3 : d.lives >= 2 ? 2 : 1;
-    for (let i = 0; i < 3; i++) {
-      this.add.text(w/2 - 40 + i * 40, h*0.48, '⭐', {
-        fontSize: '28px',
-      }).setOrigin(0.5).setAlpha(i < stars ? 1 : 0.2);
-    }
-
-    this.add.text(w/2, h*0.58, `+${d.score} points`, {
-      fontSize: '22px', fontFamily: 'sans-serif', color: '#FFD700', fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    // Next button
-    const isLast = d.level + 1 >= LEVELS.length;
-    const btnText = isLast ? '🏆  See Results' : 'Next World  →';
-    const btn = this.add.rectangle(w/2, h*0.73, 200, 48, 0x4caf50).setInteractive({ useHandCursor: true });
-    btn.setStrokeStyle(2, 0x66bb6a);
-    this.add.text(w/2, h*0.73, btnText, {
-      fontSize: '16px', fontFamily: 'sans-serif', color: '#fff', fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    btn.on('pointerup', () => {
-      this.cameras.main.fadeOut(300);
-      this.time.delayedCall(300, () => {
-        if (isLast) {
-          this.scene.start('Victory', { totalScore: d.totalScore, allRescued: d.allRescued });
-        } else {
-          this.scene.start('Game', { level: d.level + 1, totalScore: d.totalScore, allRescued: d.allRescued });
-        }
-      });
-    });
-
+  constructor(){super('LevelComplete');}
+  init(data){this.d=data;}
+  create(){
+    var w=this.cameras.main.width,h=this.cameras.main.height,d=this.d;
+    this.add.rectangle(w/2,h/2,w,h,0x0a1628);
+    this.add.text(w/2,h*0.15,'🎉',{fontSize:'48px'}).setOrigin(0.5);
+    this.add.text(w/2,h*0.28,'Level Complete!',{fontSize:'28px',fontFamily:'Trebuchet MS,sans-serif',color:'#7ed957',fontStyle:'bold'}).setOrigin(0.5);
+    this.add.text(w/2,h*0.38,LEVELS[d.level].name+' cleared!',{fontSize:'15px',color:'rgba(255,255,255,0.7)'}).setOrigin(0.5);
+    var stars=d.lives>=3?3:d.lives>=2?2:1;
+    for(var i=0;i<3;i++)this.add.text(w/2-40+i*40,h*0.48,'⭐',{fontSize:'28px'}).setOrigin(0.5).setAlpha(i<stars?1:0.2);
+    this.add.text(w/2,h*0.58,'+'+d.score+' points',{fontSize:'22px',color:'#FFD700',fontStyle:'bold'}).setOrigin(0.5);
+    var isLast=d.level+1>=LEVELS.length;
+    var btn=this.add.rectangle(w/2,h*0.73,200,48,0x4caf50).setInteractive({useHandCursor:true});
+    btn.setStrokeStyle(2,0x66bb6a);
+    this.add.text(w/2,h*0.73,isLast?'🏆  See Results':'Next World  →',{fontSize:'16px',color:'#fff',fontStyle:'bold'}).setOrigin(0.5);
+    var self=this;
+    btn.on('pointerup',function(){self.cameras.main.fadeOut(300);self.time.delayedCall(300,function(){
+      if(isLast)self.scene.start('Victory',{totalScore:d.totalScore,allRescued:d.allRescued});
+      else self.scene.start('Game',{level:d.level+1,totalScore:d.totalScore,allRescued:d.allRescued});
+    });});
     this.cameras.main.fadeIn(400);
   }
 }
 
-// ============================================================
-// GAME OVER SCENE
-// ============================================================
 class GameOverScene extends Phaser.Scene {
-  constructor() { super('GameOver'); }
-  init(data) { this.data_pass = data; }
-
-  create() {
-    const { width: w, height: h } = this.cameras.main;
-    const d = this.data_pass;
-
-    this.add.rectangle(w/2, h/2, w, h, 0x1a0a0a, 1);
-    this.add.text(w/2, h*0.2, '😢', { fontSize: '48px' }).setOrigin(0.5);
-    this.add.text(w/2, h*0.34, 'Game Over', {
-      fontSize: '30px', fontFamily: 'Trebuchet MS, sans-serif', color: '#ff6b6b', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.add.text(w/2, h*0.44, 'The animals still need your help!', {
-      fontSize: '14px', fontFamily: 'sans-serif', color: 'rgba(255,255,255,0.6)',
-    }).setOrigin(0.5);
-
-    // Retry
-    const retry = this.add.rectangle(w/2 - 70, h*0.62, 120, 44, 0xff6b35).setInteractive({ useHandCursor: true });
-    this.add.text(w/2 - 70, h*0.62, '🔄 Retry', {
-      fontSize: '15px', fontFamily: 'sans-serif', color: '#fff', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    retry.on('pointerup', () => {
-      this.scene.start('Game', { level: d.level, totalScore: d.totalScore, allRescued: d.allRescued });
-    });
-
-    // Menu
-    const menu = this.add.rectangle(w/2 + 70, h*0.62, 120, 44, 0x333333).setInteractive({ useHandCursor: true });
-    menu.setStrokeStyle(2, 0x555555);
-    this.add.text(w/2 + 70, h*0.62, '🏠 Menu', {
-      fontSize: '15px', fontFamily: 'sans-serif', color: '#fff', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    menu.on('pointerup', () => { this.scene.start('Menu'); });
-
+  constructor(){super('GameOver');}
+  init(data){this.d=data;}
+  create(){
+    var w=this.cameras.main.width,h=this.cameras.main.height,d=this.d;
+    this.add.rectangle(w/2,h/2,w,h,0x1a0a0a);
+    this.add.text(w/2,h*0.2,'😢',{fontSize:'48px'}).setOrigin(0.5);
+    this.add.text(w/2,h*0.34,'Game Over',{fontSize:'28px',fontFamily:'Trebuchet MS,sans-serif',color:'#ff6b6b',fontStyle:'bold'}).setOrigin(0.5);
+    this.add.text(w/2,h*0.44,'The animals still need your help!',{fontSize:'14px',color:'rgba(255,255,255,0.6)'}).setOrigin(0.5);
+    var self=this;
+    var retry=this.add.rectangle(w/2-70,h*0.6,120,44,0xff6b35).setInteractive({useHandCursor:true});
+    this.add.text(w/2-70,h*0.6,'🔄 Retry',{fontSize:'15px',color:'#fff',fontStyle:'bold'}).setOrigin(0.5);
+    retry.on('pointerup',function(){self.scene.start('Game',{level:d.level,totalScore:d.totalScore,allRescued:d.allRescued});});
+    var menu=this.add.rectangle(w/2+70,h*0.6,120,44,0x333333).setInteractive({useHandCursor:true});
+    menu.setStrokeStyle(2,0x555555);
+    this.add.text(w/2+70,h*0.6,'🏠 Menu',{fontSize:'15px',color:'#fff',fontStyle:'bold'}).setOrigin(0.5);
+    menu.on('pointerup',function(){self.scene.start('Menu');});
     this.cameras.main.fadeIn(400);
   }
 }
 
-// ============================================================
-// VICTORY SCENE
-// ============================================================
 class VictoryScene extends Phaser.Scene {
-  constructor() { super('Victory'); }
-  init(data) { this.data_pass = data; }
-
-  create() {
-    const { width: w, height: h } = this.cameras.main;
-    const d = this.data_pass;
-
-    this.add.rectangle(w/2, h/2, w, h, 0x0a1628, 1);
-    this.add.text(w/2, h*0.12, '🏆', { fontSize: '56px' }).setOrigin(0.5);
-    this.add.text(w/2, h*0.25, 'WILDLIFE HERO!', {
-      fontSize: '32px', fontFamily: 'Trebuchet MS, sans-serif', color: '#FFD700', fontStyle: 'bold',
-      stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0.5);
-
-    this.add.text(w/2, h*0.35, 'You rescued every animal across all 5 worlds!', {
-      fontSize: '14px', fontFamily: 'sans-serif', color: 'rgba(255,255,255,0.7)',
-    }).setOrigin(0.5);
-
-    this.add.text(w/2, h*0.45, `Final Score: ${d.totalScore}`, {
-      fontSize: '26px', fontFamily: 'sans-serif', color: '#FFD700', fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    // Show rescued animals
-    const unique = [...new Set(d.allRescued)];
-    const startX = w/2 - (unique.length * 18);
-    unique.forEach((name, i) => {
-      const img = this.add.image(startX + i * 36, h*0.58, `animal-${name}`).setScale(1.3);
-      this.tweens.add({ targets: img, y: img.y - 6, duration: 800 + i*100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    });
-
-    // Play again
-    const btn = this.add.rectangle(w/2, h*0.75, 200, 48, 0x4caf50).setInteractive({ useHandCursor: true });
-    btn.setStrokeStyle(2, 0x66bb6a);
-    this.add.text(w/2, h*0.75, '🔄  Play Again', {
-      fontSize: '16px', fontFamily: 'sans-serif', color: '#fff', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    btn.on('pointerup', () => { this.scene.start('Menu'); });
-
-    // Confetti effect using tweens
-    const confettiEmojis = ['🎉', '⭐', '🌟', '✨', '💛', '💚'];
-    for (let i = 0; i < 40; i++) {
-      this.time.delayedCall(i * 100, () => {
-        const emoji = confettiEmojis[Math.floor(Math.random() * confettiEmojis.length)];
-        const star = this.add.text(Math.random() * w, -20, emoji, { fontSize: '20px' });
-        this.tweens.add({
-          targets: star,
-          y: h + 20,
-          x: star.x + (Math.random() - 0.5) * 100,
-          rotation: Math.random() * 6,
-          duration: 2000 + Math.random() * 1500,
-          onComplete: () => star.destroy()
-        });
-      });
-    }
-
+  constructor(){super('Victory');}
+  init(data){this.d=data;}
+  create(){
+    var w=this.cameras.main.width,h=this.cameras.main.height,d=this.d;
+    this.add.rectangle(w/2,h/2,w,h,0x0a1628);
+    this.add.text(w/2,h*0.12,'🏆',{fontSize:'52px'}).setOrigin(0.5);
+    this.add.text(w/2,h*0.25,'WILDLIFE HERO!',{fontSize:'30px',fontFamily:'Trebuchet MS,sans-serif',color:'#FFD700',fontStyle:'bold',stroke:'#000',strokeThickness:3}).setOrigin(0.5);
+    this.add.text(w/2,h*0.35,'All 5 worlds completed!',{fontSize:'14px',color:'rgba(255,255,255,0.7)'}).setOrigin(0.5);
+    this.add.text(w/2,h*0.45,'Final Score: '+d.totalScore,{fontSize:'24px',color:'#FFD700',fontStyle:'bold'}).setOrigin(0.5);
+    var unique=[],seen={};d.allRescued.forEach(function(n){if(!seen[n]){seen[n]=true;unique.push(n);}});
+    var emojis={Bunny:'🐰',Fox:'🦊',Bird:'🐦',Cat:'🐱',Frog:'🐸',Panda:'🐼',Penguin:'🐧',Parrot:'🦜'};
+    unique.forEach(function(name,i){
+      var e=emojis[name]||'🐾';
+      var t=this.add.text(w/2-unique.length*16+i*36,h*0.58,e,{fontSize:'24px'}).setOrigin(0.5);
+      this.tweens.add({targets:t,y:t.y-6,duration:800+i*100,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+    }.bind(this));
+    var conf=['🎉','⭐','🌟','✨','💛'];var self=this;
+    for(var i=0;i<30;i++)(function(i){self.time.delayedCall(i*120,function(){
+      var s=self.add.text(Math.random()*w,-20,Phaser.Utils.Array.GetRandom(conf),{fontSize:'18px'});
+      self.tweens.add({targets:s,y:h+20,x:s.x+(Math.random()-0.5)*80,rotation:Math.random()*4,duration:2500+Math.random()*1500,onComplete:function(){s.destroy();}});
+    });})(i);
+    var btn=this.add.rectangle(w/2,h*0.75,200,48,0x4caf50).setInteractive({useHandCursor:true});
+    btn.setStrokeStyle(2,0x66bb6a);
+    this.add.text(w/2,h*0.75,'🔄  Play Again',{fontSize:'16px',color:'#fff',fontStyle:'bold'}).setOrigin(0.5);
+    btn.on('pointerup',function(){self.scene.start('Menu');});
     this.cameras.main.fadeIn(500);
   }
 }
 
-// ============================================================
-// GAME CONFIG
-// ============================================================
-const config = {
-  type: Phaser.AUTO,
-  parent: 'game-container',
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 800,
-    height: 450,
-  },
-  physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { y: 0 },
-      debug: false,
-    },
-  },
-  pixelArt: true,
-  scene: [BootScene, MenuScene, GameScene, LevelCompleteScene, GameOverScene, VictoryScene],
-  input: {
-    activePointers: 3,
-  },
-};
-
-const game = new Phaser.Game(config);
+new Phaser.Game({
+  type:Phaser.AUTO, parent:'game-container',
+  scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH,width:800,height:450},
+  physics:{default:'arcade',arcade:{gravity:{y:0},debug:false}},
+  pixelArt:true, scene:[BootScene,MenuScene,GameScene,LevelCompleteScene,GameOverScene,VictoryScene],
+  input:{activePointers:3}
+});
 </script>
 </body>
 </html>
