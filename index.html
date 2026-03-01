@@ -579,15 +579,13 @@ class GameScene extends Phaser.Scene {
     // Camera fade in
     this.cameras.main.fadeIn(400);
 
-    // Particle emitter
-    this.collectEmitter = this.collectParticles = this.add.particles('particle');
-    this.collectEmitter = this.collectParticles.createEmitter({
+    // Particle emitter (Phaser 3.60+ API)
+    this.collectEmitter = this.add.particles(0, 0, 'particle', {
       speed: { min: 50, max: 150 },
       scale: { start: 1.5, end: 0 },
       lifespan: 400,
       tint: [0xffd700, 0xff6ec7, 0x7ed957, 0x00d4ff],
       emitting: false,
-      quantity: 10,
     });
   }
 
@@ -750,7 +748,7 @@ class GameScene extends Phaser.Scene {
     this.score += 150;
     this.updateHUD();
 
-    this.collectEmitter.emitParticleAt(animal.x, animal.y, 12);
+    this.collectEmitter.emitParticleAt(animal.x, animal.y);
 
     // Floating text
     const name = animal.getData('name');
@@ -795,7 +793,7 @@ class GameScene extends Phaser.Scene {
       this.score += 100;
       this.updateHUD();
 
-      this.collectEmitter.emitParticleAt(enemy.x, enemy.y, 8);
+      this.collectEmitter.emitParticleAt(enemy.x, enemy.y);
       const txt = this.add.text(enemy.x, enemy.y, '💥 +100', {
         fontSize: '11px', fontFamily: 'sans-serif', color: '#ff6b35', fontStyle: 'bold',
         stroke: '#000', strokeThickness: 2,
@@ -851,8 +849,7 @@ class GameScene extends Phaser.Scene {
       this.time.delayedCall(i * 80, () => {
         this.collectEmitter.emitParticleAt(
           player.x - 50 + Math.random() * 100,
-          player.y - 50 + Math.random() * 50, 5
-        );
+          player.y - 50 + Math.random() * 50);
       });
     }
 
@@ -1109,8 +1106,8 @@ class VictoryScene extends Phaser.Scene {
     }).setOrigin(0.5);
     btn.on('pointerup', () => { this.scene.start('Menu'); });
 
-    // Confetti particles
-    const emitter = this.add.particles(w/2, -20, 'particle', {
+    // Confetti particles (Phaser 3.60+ API)
+    this.add.particles(w/2, -20, 'particle', {
       speed: { min: 30, max: 120 },
       angle: { min: 60, max: 120 },
       scale: { start: 2, end: 0 },
