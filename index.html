@@ -105,83 +105,95 @@ function buildChunk(cx,cz){
   const key=cx+','+cz;
   if(chunks[key]) return;
 
-  // Collect faces (only exposed faces for performance)
-  const verts=[], colors=[], indices=[];
-  let vi=0;
+  // Build a 3D block map for this chunk (with padding for neighbor checks)
+  // Blocks stored as color integers, 0 = air
+  const W=CS+2, blocks=new Int32Array(W*64*W); // padded 1 each side, 64 high
+  function bIdx(lx,ly,lz){ return ((lx+1)*64+(ly))*W+(lz+1); }
+  function setB(lx,ly,lz,c){ if(ly>=0&&ly<64) blocks[bIdx(lx,ly,lz)]=c; }
+  function getB(lx,ly,lz){ if(ly<0||ly>=64)return 0; return blocks[bIdx(lx,ly,lz)]; }
 
-  function addFace(x,y,z,face,r,g,b){
-    const p=[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
-    const faces={
-      top:   [3,2,6,7], bottom:[0,4,5,1],
-      front: [4,5,6,7], back:  [0,1,2,3],
-      left:  [0,3,7,4], right: [1,5,6,2],
-    };
-    const normals={top:[0,1,0],bottom:[0,-1,0],front:[0,0,1],back:[0,0,-1],left:[-1,0,0],right:[1,0,0]};
-    const f=faces[face];
-    for(let i=0;i<4;i++){
-      verts.push(x+p[f[i]][0], y+p[f[i]][1], z+p[f[i]][2]);
-      colors.push(r,g,b);
-    }
-    indices.push(vi,vi+1,vi+2, vi,vi+2,vi+3);
-    vi+=4;
-  }
-
-  // Height cache for this chunk + neighbors
-  const hc={};
-  function gh(x,z){ const k=x+','+z; if(hc[k]===undefined) hc[k]=height(x,z); return hc[k]; }
-
-  for(let x=0;x<CS;x++) for(let z=0;z<CS;z++){
+  // Fill terrain + structures
+  for(let x=-1;x<=CS;x++) for(let z=-1;z<=CS;z++){
     const wx=cx*CS+x, wz=cz*CS+z;
-    const h=gh(wx,wz);
+    const h=height(wx,wz);
     const bi=biomeAt(wx,wz);
     const bm=BIOMES[bi];
-    
-    for(let y=Math.max(0,h-2);y<=h;y++){
-      const isTop=y===h;
-      const c=new THREE.Color(isTop?bm.gt:bm.g);
-      const r=c.r, g2=c.g, b=c.b;
 
-      // Only add exposed faces
-      if(y===h) addFace(wx,y,wz,'top',r,g2,b);
-      if(y>gh(wx-1,wz)) addFace(wx,y,wz,'left',r*0.85,g2*0.85,b*0.85);
-      if(y>gh(wx+1,wz)) addFace(wx,y,wz,'right',r*0.85,g2*0.85,b*0.85);
-      if(y>gh(wx,wz-1)) addFace(wx,y,wz,'back',r*0.8,g2*0.8,b*0.8);
-      if(y>gh(wx,wz+1)) addFace(wx,y,wz,'front',r*0.8,g2*0.8,b*0.8);
+    // Ground: 5 blocks deep
+    for(let y=Math.max(0,h-4);y<=h;y++){
+      setB(x,y,z, y===h ? bm.gt : bm.g);
     }
 
-    // Structures
+    // Structures (only inside chunk, not padding)
+    if(x<0||x>=CS||z<0||z>=CS) continue;
     const rn=hash(wx,wz);
     if(rn>0.965 && h>1){
       if(bm.st==='tree'||bm.st==='blossom'){
         const th=4+Math.floor(hash(wx+1,wz)*3);
-        const tc=new THREE.Color(bm.tr);
-        for(let ty=1;ty<=th;ty++) addFace(wx,h+ty,wz,'top',tc.r,tc.g,tc.b);
-        const lc=new THREE.Color(bm.lf);
-        for(let lx=-1;lx<=1;lx++) for(let lz=-1;lz<=1;lz++) for(let ly=0;ly<2;ly++){
-          if(hash(wx+lx*7,wz+lz*11+ly)>0.3)
-            addFace(wx+lx,h+th+ly,wz+lz,'top',lc.r,lc.g,lc.b);
+        for(let ty=1;ty<=th;ty++) setB(x,h+ty,z, bm.tr);
+        for(let lx=-2;lx<=2;lx++) for(let lz=-2;lz<=2;lz++) for(let ly=-1;ly<2;ly++){
+          if(Math.abs(lx)+Math.abs(lz)+Math.abs(ly)<4 && hash(wx+lx*7,wz+lz*11+ly)>0.25){
+            const tx=x+lx, tz=z+lz;
+            if(tx>=-1&&tx<=CS&&tz>=-1&&tz<=CS) setB(tx,h+th+ly,tz, bm.lf);
+          }
         }
       } else if(bm.st==='cactus'){
         const ch2=2+Math.floor(hash(wx+2,wz)*3);
-        const cc=new THREE.Color(0x2ecc71);
-        for(let cy=1;cy<=ch2;cy++) addFace(wx,h+cy,wz,'top',cc.r,cc.g,cc.b);
+        for(let cy=1;cy<=ch2;cy++) setB(x,h+cy,z, 0x2ecc71);
       } else if(bm.st==='ice'){
-        const ih=2+Math.floor(hash(wx+3,wz)*3);
-        const ic=new THREE.Color(0xa8d8ea);
-        for(let iy=1;iy<=ih;iy++) addFace(wx,h+iy,wz,'top',ic.r,ic.g,ic.b);
+        const ih=3+Math.floor(hash(wx+3,wz)*4);
+        for(let iy=1;iy<=ih;iy++) setB(x,h+iy,z, 0xa8d8ea);
       } else if(bm.st==='lava'){
-        const vc=new THREE.Color(0xff4500);
-        addFace(wx,h+1,wz,'top',vc.r,vc.g,vc.b);
-        addFace(wx,h+2,wz,'top',vc.r,vc.g,vc.b);
+        for(let vy=1;vy<=3;vy++) setB(x,h+vy,z, vy<3?0x2d2d2d:0xff4500);
       }
     }
 
-    // Gems & animals
+    // Flowers
+    if(rn>0.9&&rn<=0.965&&bm.st==='tree'||bm.st==='blossom'){
+      const fc=[0xff6b6b,0xffeb3b,0xff9ff3];
+      setB(x,h+1,z, fc[Math.floor(hash(wx+5,wz+5)*3)]);
+    }
+
+    // Items
     if(rn>0.99){
-      items.push({x:wx+0.5,y:h+2,z:wz+0.5,type:'gem',done:false,ck:key,mesh:null});
+      items.push({x:wx+0.5,y:h+2.5,z:wz+0.5,type:'gem',done:false,ck:key,mesh:null});
     } else if(rn>0.98){
-      const ai=Math.floor(hash(wx+10,wz+10)*bm.animals.length);
-      items.push({x:wx+0.5,y:h+1.5,z:wz+0.5,type:'animal',emoji:bm.animals[ai],name:bm.an[ai],done:false,ck:key,mesh:null});
+      const bi2=biomeAt(wx,wz), bm2=BIOMES[bi2];
+      const ai=Math.floor(hash(wx+10,wz+10)*bm2.animals.length);
+      items.push({x:wx+0.5,y:h+2,z:wz+0.5,type:'animal',emoji:bm2.animals[ai],name:bm2.an[ai],done:false,ck:key,mesh:null});
+    }
+  }
+
+  // Generate mesh — only exposed faces
+  const verts=[], colors=[], indices=[];
+  let vi=0;
+  const p=[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+  const faceVerts={
+    top:[3,2,6,7], bottom:[4,0,1,5],
+    front:[4,5,6,7], back:[1,0,3,2],
+    left:[0,4,7,3], right:[5,1,2,6],
+  };
+  const faceDim={top:1.0, bottom:0.5, front:0.8, back:0.7, left:0.75, right:0.85};
+  const faceOff={top:[0,1,0],bottom:[0,-1,0],front:[0,0,1],back:[0,0,-1],left:[-1,0,0],right:[1,0,0]};
+
+  for(let x=0;x<CS;x++) for(let z=0;z<CS;z++) for(let y=0;y<64;y++){
+    const c=getB(x,y,z);
+    if(!c) continue;
+    const wx=cx*CS+x, wz=cz*CS+z;
+    const col=new THREE.Color(c);
+
+    for(const[fname,fv] of Object.entries(faceVerts)){
+      const off=faceOff[fname];
+      const nx=x+off[0], ny=y+off[1], nz=z+off[2];
+      // Check if neighbor is air
+      if(getB(nx,ny,nz)) continue;
+      const dim=faceDim[fname];
+      for(let i=0;i<4;i++){
+        verts.push(wx+p[fv[i]][0], y+p[fv[i]][1], wz+p[fv[i]][2]);
+        colors.push(col.r*dim, col.g*dim, col.b*dim);
+      }
+      indices.push(vi,vi+1,vi+2, vi,vi+2,vi+3);
+      vi+=4;
     }
   }
 
@@ -202,7 +214,7 @@ function buildChunk(cx,cz){
     if(it.ck!==key||it.mesh) return;
     if(it.type==='gem'){
       const gm=new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.25),
+        new THREE.OctahedronGeometry(0.3),
         new THREE.MeshPhongMaterial({color:0x00ff88,emissive:0x00aa44,shininess:80})
       );
       gm.position.set(it.x,it.y,it.z);
@@ -213,7 +225,7 @@ function buildChunk(cx,cz){
       const ct=cv.getContext('2d');
       ct.font='48px sans-serif';ct.textAlign='center';ct.fillText(it.emoji,32,52);
       const sm=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv)}));
-      sm.position.set(it.x,it.y,it.z);sm.scale.set(1.2,1.2,1);
+      sm.position.set(it.x,it.y,it.z);sm.scale.set(1.4,1.4,1);
       sc.add(sm); it.mesh=sm;
     }
   });
@@ -383,12 +395,12 @@ function update(){
   const dx2=(mx*cy-mz*sy)*MSPD;
   const dz2=(mx*sy+mz*cy)*MSPD;
 
-  // Collision + move
+  // Collision + move (check terrain height at target)
   const nx=px+dx2, nz=pz+dz2;
   const fh=height(Math.floor(nx),Math.floor(pz));
-  if(fh<py-0.3) px=nx;
+  if(fh+1<py+0.5) px=nx; // can move if ground is below feet
   const fh2=height(Math.floor(px),Math.floor(nz));
-  if(fh2<py-0.3) pz=nz;
+  if(fh2+1<py+0.5) pz=nz;
 
   // Gravity
   pvy+=GRAV; py+=pvy; onG=false;
