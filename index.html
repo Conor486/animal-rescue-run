@@ -8,680 +8,450 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏰</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:none;font-family:'Nunito',sans-serif}
-canvas{display:block;width:100%;height:100%}
-#hud{position:fixed;top:0;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:10}
-.hud-box{background:rgba(0,0,0,0.45);backdrop-filter:blur(8px);border-radius:12px;padding:8px 14px;color:#fff;font-size:13px;pointer-events:auto}
-.hud-box b{color:#FFD700;font-family:'Fredoka One',sans-serif;font-size:15px}
-.hud-box .gems{color:#7ed957}
-.hud-box .animals{color:#ff6ec7}
-#biome-label{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Fredoka One',sans-serif;font-size:32px;color:#fff;text-shadow:0 3px 12px rgba(0,0,0,0.7);opacity:0;transition:opacity 0.5s;pointer-events:none;z-index:20}
-#biome-label.show{opacity:1}
-#minimap{position:fixed;bottom:16px;right:16px;width:100px;height:100px;background:rgba(0,0,0,0.4);border:2px solid rgba(255,255,255,0.2);border-radius:12px;z-index:10;pointer-events:none}
-#minimap canvas{width:100%;height:100%;border-radius:10px}
-/* Touch controls */
-#touch-controls{position:fixed;bottom:0;left:0;right:0;height:180px;display:none;z-index:15;pointer-events:none}
-.touch-zone{pointer-events:auto;position:absolute;opacity:0.5}
-#joystick-zone{left:10px;bottom:20px;width:140px;height:140px}
-#joystick-base{width:100%;height:100%;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.25);border-radius:50%;position:relative}
-#joystick-knob{width:50px;height:50px;background:rgba(255,255,255,0.3);border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:none}
-#jump-btn{right:20px;bottom:30px;width:80px;height:80px;background:rgba(255,255,255,0.12);border:2px solid rgba(255,255,255,0.25);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;color:rgba(255,255,255,0.6)}
-#look-zone{left:0;top:0;right:0;bottom:0;width:100%;height:100%;position:fixed;z-index:5}
-/* Menu overlay */
-#menu{position:fixed;inset:0;background:linear-gradient(135deg,#1a1a3e 0%,#2d1b4e 50%,#0f2027 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
-#menu h1{font-family:'Fredoka One',sans-serif;font-size:clamp(28px,6vw,48px);color:#FFD700;text-shadow:0 4px 20px rgba(255,215,0,0.4);margin-bottom:8px}
-#menu p{color:rgba(255,255,255,0.6);font-size:14px;margin-bottom:30px;text-align:center;max-width:300px;line-height:1.5}
-#menu .biome-icons{font-size:28px;letter-spacing:8px;margin-bottom:24px}
-#play-btn{background:linear-gradient(135deg,#4caf50,#2e7d32);border:none;color:#fff;font-family:'Fredoka One',sans-serif;font-size:20px;padding:14px 48px;border-radius:16px;cursor:pointer;box-shadow:0 6px 24px rgba(76,175,80,0.4);transition:transform 0.15s,box-shadow 0.15s}
-#play-btn:hover{transform:scale(1.05);box-shadow:0 8px 32px rgba(76,175,80,0.6)}
-#play-btn:active{transform:scale(0.97)}
-.controls-hint{color:rgba(255,255,255,0.35);font-size:11px;margin-top:20px}
-@media(hover:none){#touch-controls{display:block}}
+#hud{position:fixed;top:0;left:0;right:0;padding:10px 14px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:10}
+.hb{background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);border-radius:10px;padding:6px 12px;color:#fff;font-size:13px}
+.hb b{font-family:'Fredoka One',sans-serif;font-size:15px}
+#biome-pop{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Fredoka One',sans-serif;font-size:28px;color:#fff;text-shadow:0 3px 12px rgba(0,0,0,0.8);opacity:0;transition:opacity 0.4s;pointer-events:none;z-index:20}
+#biome-pop.show{opacity:1}
+#crosshair{position:fixed;top:50%;left:50%;width:4px;height:4px;background:rgba(255,255,255,0.5);border-radius:50%;transform:translate(-50%,-50%);z-index:10;pointer-events:none;display:none}
+#fps{position:fixed;bottom:16px;left:16px;color:rgba(255,255,255,0.3);font-size:11px;z-index:10;pointer-events:none}
+/* Touch */
+#tc{position:fixed;bottom:0;left:0;right:0;height:200px;display:none;z-index:15;pointer-events:none}
+.tz{pointer-events:auto;position:absolute}
+#jz{left:16px;bottom:24px;width:130px;height:130px}
+#jb{width:100%;height:100%;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.2);border-radius:50%;position:relative}
+#jk{width:46px;height:46px;background:rgba(255,255,255,0.25);border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+#jmp{right:24px;bottom:32px;width:72px;height:72px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:rgba(255,255,255,0.5)}
+/* Menu */
+#menu{position:fixed;inset:0;background:linear-gradient(135deg,#0f1a2e 0%,#1a2d4e 50%,#0a1520 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
+#menu h1{font-family:'Fredoka One',sans-serif;font-size:clamp(26px,6vw,44px);color:#FFD700;text-shadow:0 4px 20px rgba(255,215,0,0.3);margin-bottom:6px}
+#menu p{color:rgba(255,255,255,0.55);font-size:13px;margin-bottom:28px;text-align:center;max-width:280px;line-height:1.6}
+#menu .icons{font-size:26px;letter-spacing:6px;margin-bottom:20px}
+#pbtn{background:linear-gradient(135deg,#4caf50,#2e7d32);border:none;color:#fff;font-family:'Fredoka One',sans-serif;font-size:18px;padding:12px 44px;border-radius:14px;cursor:pointer;box-shadow:0 6px 20px rgba(76,175,80,0.4)}
+#pbtn:hover{transform:scale(1.04)}
+.ch{color:rgba(255,255,255,0.3);font-size:11px;margin-top:16px}
+@media(hover:none){#tc{display:block}}
 </style>
 </head>
 <body>
 
 <div id="menu">
   <h1>🏰 Voxel Adventure!</h1>
-  <div class="biome-icons">🌲 🏜️ ❄️ 🌸 🌋</div>
+  <div class="icons">🌲 🏜️ ❄️ 🌸 🌋</div>
   <p>Explore beautiful voxel worlds, collect gems & rescue animals across 5 magical biomes!</p>
-  <button id="play-btn">🎮 Explore!</button>
-  <div class="controls-hint">WASD/Arrows + Mouse • Touch on mobile</div>
+  <button id="pbtn">🎮 Explore!</button>
+  <div class="ch">WASD + Mouse look (click to lock) • Touch on mobile</div>
 </div>
 
 <div id="hud" style="display:none">
-  <div class="hud-box"><b>💎 <span id="gem-count">0</span></b> <span class="gems">gems</span></div>
-  <div class="hud-box" id="biome-name">🌲 Enchanted Forest</div>
-  <div class="hud-box"><b>🐾 <span id="animal-count">0</span></b> <span class="animals">rescued</span></div>
+  <div class="hb"><b style="color:#00ff88">💎 <span id="gc">0</span></b></div>
+  <div class="hb" id="bn">🌲 Enchanted Forest</div>
+  <div class="hb"><b style="color:#ff6ec7">🐾 <span id="ac">0</span></b></div>
 </div>
+<div id="biome-pop"></div>
+<div id="crosshair"></div>
+<div id="fps"></div>
 
-<div id="biome-label"></div>
-
-<div id="touch-controls">
-  <div class="touch-zone" id="joystick-zone">
-    <div id="joystick-base"><div id="joystick-knob"></div></div>
-  </div>
-  <div class="touch-zone" id="jump-btn">JUMP</div>
+<div id="tc">
+  <div class="tz" id="jz"><div id="jb"><div id="jk"></div></div></div>
+  <div class="tz" id="jmp">JUMP</div>
 </div>
-
-<div id="minimap"><canvas id="minimap-canvas" width="100" height="100"></canvas></div>
 
 <script>
-// ============================================================
-// BIOME DEFINITIONS
-// ============================================================
+// ===================== CONFIG =====================
+const CS = 16, RD = 2, BLK = 1;
+const GRAV = -0.018, JVEL = 0.2, MSPD = 0.1;
 const BIOMES = [
-  {
-    name: 'Enchanted Forest', icon: '🌲',
-    ground: 0x4a7a3a, groundTop: 0x6ab04c, trunk: 0x6b4226, leaves: 0x27ae60,
-    sky: [0x87CEEB, 0xb8e6b8], fog: 0xb8e6b8, fogDist: 60,
-    water: 0x3498db, flowers: [0xff6b6b, 0xffeb3b, 0xff9ff3],
-    ambientLight: 0xffffff, ambientIntensity: 0.6,
-    dirLight: 0xfffacd, dirIntensity: 0.8,
-    animals: ['🐰','🦊','🐿️'], animalNames: ['Bunny','Fox','Squirrel'],
-    structures: 'trees',
-  },
-  {
-    name: 'Golden Desert', icon: '🏜️',
-    ground: 0xc2956b, groundTop: 0xe8c170, trunk: 0x6b8e23, leaves: 0x228b22,
-    sky: [0xffd89b, 0x87CEEB], fog: 0xffd89b, fogDist: 80,
-    water: null, flowers: [0xff6348],
-    ambientLight: 0xfffacd, ambientIntensity: 0.7,
-    dirLight: 0xffffff, dirIntensity: 1.0,
-    animals: ['🦎','🐪','🦂'], animalNames: ['Lizard','Camel','Scorpion'],
-    structures: 'cacti',
-  },
-  {
-    name: 'Frozen Peaks', icon: '❄️',
-    ground: 0x8eacc0, groundTop: 0xecf0f1, trunk: 0x5d6d7e, leaves: 0xecf0f1,
-    sky: [0xb8d4e3, 0xecf0f1], fog: 0xdfe6e9, fogDist: 55,
-    water: 0x74b9ff, flowers: [],
-    ambientLight: 0xdfe6e9, ambientIntensity: 0.65,
-    dirLight: 0xf0f0ff, dirIntensity: 0.7,
-    animals: ['🐧','🦌','🐻‍❄️'], animalNames: ['Penguin','Deer','Polar Bear'],
-    structures: 'ice',
-  },
-  {
-    name: 'Cherry Blossom Valley', icon: '🌸',
-    ground: 0x6ab04c, groundTop: 0x7bc95e, trunk: 0x6b4226, leaves: 0xffb6c1,
-    sky: [0xffecd2, 0xfcb69f], fog: 0xffecd2, fogDist: 65,
-    water: 0x81ecec, flowers: [0xff6b81, 0xf8a5c2, 0xffffff],
-    ambientLight: 0xfff5ee, ambientIntensity: 0.65,
-    dirLight: 0xffe4e1, dirIntensity: 0.8,
-    animals: ['🐼','🦋','🐇'], animalNames: ['Panda','Butterfly','Rabbit'],
-    structures: 'blossom',
-  },
-  {
-    name: 'Volcanic Islands', icon: '🌋',
-    ground: 0x3d3d3d, groundTop: 0x555555, trunk: 0x2d2d2d, leaves: 0x444444,
-    sky: [0x2d1b0e, 0xff6b35], fog: 0x5a2a10, fogDist: 50,
-    water: 0xff4500, flowers: [0xff4500, 0xff6348],
-    ambientLight: 0xff8c42, ambientIntensity: 0.5,
-    dirLight: 0xff6b35, dirIntensity: 0.9,
-    animals: ['🦜','🐉','🦎'], animalNames: ['Parrot','Dragon','Gecko'],
-    structures: 'volcanic',
-  },
+  { name:'Enchanted Forest', icon:'🌲', g:0x4a7a3a, gt:0x6ab04c, tr:0x6b4226, lf:0x27ae60,
+    sky:[0x87CEEB,0xb8e6b8], fog:0xb8e6b8, fd:55, al:0.6, dl:0.8, dc:0xfffacd,
+    animals:['🐰','🦊','🐿️'], an:['Bunny','Fox','Squirrel'], st:'tree' },
+  { name:'Golden Desert', icon:'🏜️', g:0xc2956b, gt:0xe8c170, tr:0x6b8e23, lf:0x228b22,
+    sky:[0xffd89b,0x87CEEB], fog:0xffd89b, fd:70, al:0.7, dl:1.0, dc:0xffffff,
+    animals:['🦎','🐪','🦂'], an:['Lizard','Camel','Scorpion'], st:'cactus' },
+  { name:'Frozen Peaks', icon:'❄️', g:0x8eacc0, gt:0xecf0f1, tr:0x5d6d7e, lf:0xd4e6f1,
+    sky:[0xb8d4e3,0xecf0f1], fog:0xdfe6e9, fd:50, al:0.65, dl:0.7, dc:0xf0f0ff,
+    animals:['🐧','🦌','🐻‍❄️'], an:['Penguin','Deer','Polar Bear'], st:'ice' },
+  { name:'Cherry Blossom', icon:'🌸', g:0x6ab04c, gt:0x7bc95e, tr:0x6b4226, lf:0xffb6c1,
+    sky:[0xffecd2,0xfcb69f], fog:0xffecd2, fd:60, al:0.65, dl:0.8, dc:0xffe4e1,
+    animals:['🐼','🦋','🐇'], an:['Panda','Butterfly','Rabbit'], st:'blossom' },
+  { name:'Volcanic Islands', icon:'🌋', g:0x3d3d3d, gt:0x555555, tr:0x2d2d2d, lf:0x444444,
+    sky:[0x2d1b0e,0xff6b35], fog:0x5a2a10, fd:45, al:0.5, dl:0.9, dc:0xff6b35,
+    animals:['🦜','🐉','🦎'], an:['Parrot','Dragon','Gecko'], st:'lava' },
 ];
 
-// ============================================================
-// GAME STATE
-// ============================================================
-let scene, camera, renderer, clock;
-let player = { x: 0, y: 8, z: 0, vy: 0, onGround: false, yaw: 0, pitch: 0 };
-let keys = {};
-let gems = 0, animalsRescued = 0;
-let chunks = {};
-let collectibles = [];
-let animals = [];
-let currentBiome = 0;
-let joystickInput = { x: 0, y: 0 };
-let lookDelta = { x: 0, y: 0 };
-let jumpPressed = false;
-const CHUNK_SIZE = 16;
-const RENDER_DIST = 3;
-const BLOCK = 1;
-const GRAVITY = -0.015;
-const JUMP_VEL = 0.22;
-const MOVE_SPEED = 0.12;
+// ===================== STATE =====================
+let sc, cam, ren, clk;
+let px=0, py=10, pz=0, pvy=0, onG=false, yaw=0, pitch=0;
+let keys={}, ji={x:0,y:0}, jprs=false;
+let chunks={}, pending=[];
+let items=[], curBiome=0, gems=0, rescued=0;
+let fpsT=0, fpsC=0, fpsV=0;
 
-// Seeded random
-function seedRand(x, z) {
-  let h = (x * 374761393 + z * 668265263 + 1234567) | 0;
-  h = ((h ^ (h >> 13)) * 1274126177) | 0;
-  return ((h ^ (h >> 16)) >>> 0) / 4294967296;
+// ===================== TERRAIN =====================
+function hash(x,z){ let h=(x*374761393+z*668265263+1234567)|0; h=((h^(h>>13))*1274126177)|0; return((h^(h>>16))>>>0)/4294967296; }
+function height(x,z){
+  return Math.floor(3+Math.sin(x*0.05)*2+Math.cos(z*0.07)*2+Math.sin(x*0.02+z*0.03)*4+Math.sin(x*0.12)*Math.cos(z*0.1)*1.5);
+}
+function biomeAt(x,z){
+  let v=Math.sin(x*0.008)*2+Math.cos(z*0.01)*2+Math.sin((x+z)*0.005);
+  return Math.max(0,Math.min(4,Math.floor(((v+5)/10)*5)));
 }
 
-function getHeight(wx, wz) {
-  let h = 3;
-  h += Math.sin(wx * 0.05) * 2 + Math.cos(wz * 0.07) * 2;
-  h += Math.sin(wx * 0.02 + wz * 0.03) * 4;
-  h += Math.sin(wx * 0.12) * Math.cos(wz * 0.1) * 1.5;
-  return Math.floor(h);
-}
+// ===================== CHUNK MESH =====================
+function buildChunk(cx,cz){
+  const key=cx+','+cz;
+  if(chunks[key]) return;
 
-function getBiomeAt(wx, wz) {
-  let v = Math.sin(wx * 0.008) * 2 + Math.cos(wz * 0.01) * 2 + Math.sin((wx + wz) * 0.005);
-  let idx = Math.floor(((v + 5) / 10) * BIOMES.length);
-  return Math.max(0, Math.min(BIOMES.length - 1, idx));
-}
+  // Collect faces (only exposed faces for performance)
+  const verts=[], colors=[], indices=[];
+  let vi=0;
 
-// ============================================================
-// WORLD GENERATION
-// ============================================================
-function generateChunk(cx, cz) {
-  const key = cx + ',' + cz;
-  if (chunks[key]) return;
+  function addFace(x,y,z,face,r,g,b){
+    const p=[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+    const faces={
+      top:   [3,2,6,7], bottom:[0,4,5,1],
+      front: [4,5,6,7], back:  [0,1,2,3],
+      left:  [0,3,7,4], right: [1,5,6,2],
+    };
+    const normals={top:[0,1,0],bottom:[0,-1,0],front:[0,0,1],back:[0,0,-1],left:[-1,0,0],right:[1,0,0]};
+    const f=faces[face];
+    for(let i=0;i<4;i++){
+      verts.push(x+p[f[i]][0], y+p[f[i]][1], z+p[f[i]][2]);
+      colors.push(r,g,b);
+    }
+    indices.push(vi,vi+1,vi+2, vi,vi+2,vi+3);
+    vi+=4;
+  }
 
-  const group = new THREE.Group();
-  const geo = new THREE.BoxGeometry(BLOCK, BLOCK, BLOCK);
+  // Height cache for this chunk + neighbors
+  const hc={};
+  function gh(x,z){ const k=x+','+z; if(hc[k]===undefined) hc[k]=height(x,z); return hc[k]; }
 
-  // Batch blocks by material for performance
-  const blockData = [];
+  for(let x=0;x<CS;x++) for(let z=0;z<CS;z++){
+    const wx=cx*CS+x, wz=cz*CS+z;
+    const h=gh(wx,wz);
+    const bi=biomeAt(wx,wz);
+    const bm=BIOMES[bi];
+    
+    for(let y=Math.max(0,h-2);y<=h;y++){
+      const isTop=y===h;
+      const c=new THREE.Color(isTop?bm.gt:bm.g);
+      const r=c.r, g2=c.g, b=c.b;
 
-  for (let x = 0; x < CHUNK_SIZE; x++) {
-    for (let z = 0; z < CHUNK_SIZE; z++) {
-      const wx = cx * CHUNK_SIZE + x;
-      const wz = cz * CHUNK_SIZE + z;
-      const h = getHeight(wx, wz);
-      const biomeIdx = getBiomeAt(wx, wz);
-      const biome = BIOMES[biomeIdx];
+      // Only add exposed faces
+      if(y===h) addFace(wx,y,wz,'top',r,g2,b);
+      if(y>gh(wx-1,wz)) addFace(wx,y,wz,'left',r*0.85,g2*0.85,b*0.85);
+      if(y>gh(wx+1,wz)) addFace(wx,y,wz,'right',r*0.85,g2*0.85,b*0.85);
+      if(y>gh(wx,wz-1)) addFace(wx,y,wz,'back',r*0.8,g2*0.8,b*0.8);
+      if(y>gh(wx,wz+1)) addFace(wx,y,wz,'front',r*0.8,g2*0.8,b*0.8);
+    }
 
-      // Ground blocks
-      for (let y = 0; y <= h; y++) {
-        const isTop = y === h;
-        const color = isTop ? biome.groundTop : biome.ground;
-        blockData.push({ x: wx, y, z: wz, color });
-      }
-
-      // Water
-      if (biome.water && h < 2) {
-        blockData.push({ x: wx, y: 2, z: wz, color: biome.water, transparent: true });
-      }
-
-      // Structures
-      const r = seedRand(wx, wz);
-      if (r > 0.96 && h > 1) {
-        if (biome.structures === 'trees' || biome.structures === 'blossom') {
-          const treeH = 4 + Math.floor(seedRand(wx + 1, wz) * 3);
-          for (let ty = 1; ty <= treeH; ty++) blockData.push({ x: wx, y: h + ty, z: wz, color: biome.trunk });
-          for (let lx = -2; lx <= 2; lx++) for (let lz = -2; lz <= 2; lz++) for (let ly = 0; ly < 3; ly++) {
-            if (Math.abs(lx) + Math.abs(lz) + ly < 4 && seedRand(wx + lx * 7, wz + lz * 11 + ly) > 0.2) {
-              blockData.push({ x: wx + lx, y: h + treeH + ly, z: wz + lz, color: biome.leaves });
-            }
-          }
-        } else if (biome.structures === 'cacti') {
-          const cH = 2 + Math.floor(seedRand(wx + 2, wz) * 3);
-          for (let cy = 1; cy <= cH; cy++) blockData.push({ x: wx, y: h + cy, z: wz, color: 0x2ecc71 });
-        } else if (biome.structures === 'ice') {
-          const iH = 3 + Math.floor(seedRand(wx + 3, wz) * 4);
-          for (let iy = 1; iy <= iH; iy++) blockData.push({ x: wx, y: h + iy, z: wz, color: 0xa8d8ea });
-        } else if (biome.structures === 'volcanic') {
-          if (seedRand(wx * 3, wz * 5) > 0.5) {
-            for (let vy = 1; vy <= 3; vy++) blockData.push({ x: wx, y: h + vy, z: wz, color: 0x2d2d2d });
-            blockData.push({ x: wx, y: h + 4, z: wz, color: 0xff4500 });
-          }
+    // Structures
+    const rn=hash(wx,wz);
+    if(rn>0.965 && h>1){
+      if(bm.st==='tree'||bm.st==='blossom'){
+        const th=4+Math.floor(hash(wx+1,wz)*3);
+        const tc=new THREE.Color(bm.tr);
+        for(let ty=1;ty<=th;ty++) addFace(wx,h+ty,wz,'top',tc.r,tc.g,tc.b);
+        const lc=new THREE.Color(bm.lf);
+        for(let lx=-1;lx<=1;lx++) for(let lz=-1;lz<=1;lz++) for(let ly=0;ly<2;ly++){
+          if(hash(wx+lx*7,wz+lz*11+ly)>0.3)
+            addFace(wx+lx,h+th+ly,wz+lz,'top',lc.r,lc.g,lc.b);
         }
+      } else if(bm.st==='cactus'){
+        const ch2=2+Math.floor(hash(wx+2,wz)*3);
+        const cc=new THREE.Color(0x2ecc71);
+        for(let cy=1;cy<=ch2;cy++) addFace(wx,h+cy,wz,'top',cc.r,cc.g,cc.b);
+      } else if(bm.st==='ice'){
+        const ih=2+Math.floor(hash(wx+3,wz)*3);
+        const ic=new THREE.Color(0xa8d8ea);
+        for(let iy=1;iy<=ih;iy++) addFace(wx,h+iy,wz,'top',ic.r,ic.g,ic.b);
+      } else if(bm.st==='lava'){
+        const vc=new THREE.Color(0xff4500);
+        addFace(wx,h+1,wz,'top',vc.r,vc.g,vc.b);
+        addFace(wx,h+2,wz,'top',vc.r,vc.g,vc.b);
       }
+    }
 
-      // Flowers
-      if (r > 0.9 && r <= 0.96 && biome.flowers.length > 0) {
-        const fc = biome.flowers[Math.floor(seedRand(wx + 5, wz + 5) * biome.flowers.length)];
-        blockData.push({ x: wx, y: h + 1, z: wz, color: fc, small: true });
-      }
-
-      // Gems
-      if (r > 0.985) {
-        collectibles.push({
-          x: wx + 0.5, y: h + 2, z: wz + 0.5, collected: false,
-          mesh: null, chunkKey: key
-        });
-      }
-
-      // Animals
-      if (r > 0.975 && r <= 0.985) {
-        const aIdx = Math.floor(seedRand(wx + 10, wz + 10) * biome.animals.length);
-        animals.push({
-          x: wx + 0.5, y: h + 1.5, z: wz + 0.5, collected: false,
-          emoji: biome.animals[aIdx], name: biome.animalNames[aIdx],
-          mesh: null, chunkKey: key, biomeIdx
-        });
-      }
+    // Gems & animals
+    if(rn>0.99){
+      items.push({x:wx+0.5,y:h+2,z:wz+0.5,type:'gem',done:false,ck:key,mesh:null});
+    } else if(rn>0.98){
+      const ai=Math.floor(hash(wx+10,wz+10)*bm.animals.length);
+      items.push({x:wx+0.5,y:h+1.5,z:wz+0.5,type:'animal',emoji:bm.animals[ai],name:bm.an[ai],done:false,ck:key,mesh:null});
     }
   }
 
-  // Use InstancedMesh for performance
-  const colorMap = {};
-  blockData.forEach(b => {
-    const cKey = b.color + (b.transparent ? '_t' : '') + (b.small ? '_s' : '');
-    if (!colorMap[cKey]) colorMap[cKey] = [];
-    colorMap[cKey].push(b);
-  });
+  if(verts.length===0){ chunks[key]={mesh:null}; return; }
 
-  Object.entries(colorMap).forEach(([cKey, blocks]) => {
-    const isTransparent = cKey.includes('_t');
-    const isSmall = cKey.includes('_s');
-    const bGeo = isSmall ? new THREE.BoxGeometry(0.3, 0.3, 0.3) : geo;
-    const mat = new THREE.MeshLambertMaterial({
-      color: blocks[0].color,
-      transparent: isTransparent,
-      opacity: isTransparent ? 0.6 : 1,
-    });
-    const mesh = new THREE.InstancedMesh(bGeo, mat, blocks.length);
-    const dummy = new THREE.Object3D();
-    blocks.forEach((b, i) => {
-      dummy.position.set(b.x + 0.5, b.y + 0.5, b.z + 0.5);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    group.add(mesh);
-  });
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
 
-  // Gem meshes
-  collectibles.forEach(c => {
-    if (c.chunkKey === key && !c.mesh) {
-      const gGeo = new THREE.OctahedronGeometry(0.3);
-      const gMat = new THREE.MeshPhongMaterial({ color: 0x00ff88, emissive: 0x00aa44, shininess: 100 });
-      c.mesh = new THREE.Mesh(gGeo, gMat);
-      c.mesh.position.set(c.x, c.y, c.z);
-      group.add(c.mesh);
+  const mat=new THREE.MeshLambertMaterial({vertexColors:true});
+  const mesh=new THREE.Mesh(geo,mat);
+  sc.add(mesh);
+
+  // Item meshes
+  items.forEach(it=>{
+    if(it.ck!==key||it.mesh) return;
+    if(it.type==='gem'){
+      const gm=new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.25),
+        new THREE.MeshPhongMaterial({color:0x00ff88,emissive:0x00aa44,shininess:80})
+      );
+      gm.position.set(it.x,it.y,it.z);
+      sc.add(gm); it.mesh=gm;
+    } else {
+      const cv=document.createElement('canvas');
+      cv.width=64;cv.height=64;
+      const ct=cv.getContext('2d');
+      ct.font='48px sans-serif';ct.textAlign='center';ct.fillText(it.emoji,32,52);
+      const sm=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv)}));
+      sm.position.set(it.x,it.y,it.z);sm.scale.set(1.2,1.2,1);
+      sc.add(sm); it.mesh=sm;
     }
   });
 
-  // Animal meshes (sprite-like)
-  animals.forEach(a => {
-    if (a.chunkKey === key && !a.mesh) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 64; canvas.height = 64;
-      const ctx = canvas.getContext('2d');
-      ctx.font = '48px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(a.emoji, 32, 52);
-      const tex = new THREE.CanvasTexture(canvas);
-      const sMat = new THREE.SpriteMaterial({ map: tex });
-      a.mesh = new THREE.Sprite(sMat);
-      a.mesh.position.set(a.x, a.y, a.z);
-      a.mesh.scale.set(1.2, 1.2, 1);
-      group.add(a.mesh);
-    }
-  });
-
-  scene.add(group);
-  chunks[key] = group;
+  chunks[key]={mesh};
 }
 
-function removeChunk(cx, cz) {
-  const key = cx + ',' + cz;
-  if (chunks[key]) {
-    scene.remove(chunks[key]);
-    chunks[key].traverse(child => {
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) {
-        if (child.material.map) child.material.map.dispose();
-        child.material.dispose();
-      }
-    });
-    delete chunks[key];
+function removeChunk(cx,cz){
+  const key=cx+','+cz;
+  const ch=chunks[key];
+  if(!ch) return;
+  if(ch.mesh){ sc.remove(ch.mesh); ch.mesh.geometry.dispose(); ch.mesh.material.dispose(); }
+  // Remove item meshes
+  items.forEach(it=>{
+    if(it.ck===key&&it.mesh){ sc.remove(it.mesh); it.mesh=null; }
+  });
+  delete chunks[key];
+}
+
+// Throttled chunk updates - max 2 per frame
+function updateChunks(){
+  const pcx=Math.floor(px/CS), pcz=Math.floor(pz/CS);
+  let built=0;
+  for(let dx=-RD;dx<=RD&&built<2;dx++) for(let dz=-RD;dz<=RD&&built<2;dz++){
+    const k=(pcx+dx)+','+(pcz+dz);
+    if(!chunks[k]){ buildChunk(pcx+dx,pcz+dz); built++; }
   }
-}
-
-function updateChunks() {
-  const pcx = Math.floor(player.x / CHUNK_SIZE);
-  const pcz = Math.floor(player.z / CHUNK_SIZE);
-
-  // Load nearby
-  for (let dx = -RENDER_DIST; dx <= RENDER_DIST; dx++) {
-    for (let dz = -RENDER_DIST; dz <= RENDER_DIST; dz++) {
-      generateChunk(pcx + dx, pcz + dz);
-    }
-  }
-
-  // Unload far
-  Object.keys(chunks).forEach(key => {
-    const [cx, cz] = key.split(',').map(Number);
-    if (Math.abs(cx - pcx) > RENDER_DIST + 1 || Math.abs(cz - pcz) > RENDER_DIST + 1) {
-      removeChunk(cx, cz);
-    }
+  Object.keys(chunks).forEach(k=>{
+    const[cx,cz]=k.split(',').map(Number);
+    if(Math.abs(cx-pcx)>RD+1||Math.abs(cz-pcz)>RD+1) removeChunk(cx,cz);
   });
 }
 
-// ============================================================
-// COLLISION
-// ============================================================
-function isSolid(wx, wy, wz) {
-  const h = getHeight(Math.floor(wx), Math.floor(wz));
-  return wy <= h + 0.5;
-}
+// ===================== INIT =====================
+function init(){
+  sc=new THREE.Scene();
+  clk=new THREE.Clock();
+  cam=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,150);
+  ren=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
+  ren.setSize(innerWidth,innerHeight);
+  ren.setPixelRatio(Math.min(devicePixelRatio,2));
+  document.body.prepend(ren.domElement);
 
-// ============================================================
-// INIT
-// ============================================================
-function init() {
-  scene = new THREE.Scene();
-  clock = new THREE.Clock();
+  // Lights
+  sc.add(new THREE.AmbientLight(0xffffff,0.6));
+  const dl=new THREE.DirectionalLight(0xfffacd,0.8);
+  dl.position.set(30,50,30); sc.add(dl);
+  sc.fog=new THREE.Fog(BIOMES[0].fog,8,BIOMES[0].fd);
 
-  camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
-  camera.position.set(0, 10, 0);
+  // Sky
+  updateSky(0);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.shadowMap.enabled = false;
-  document.body.prepend(renderer.domElement);
+  py=height(0,0)+3;
 
-  // Lighting
-  updateBiomeLighting();
-
-  // Skybox gradient
-  updateSky();
-
-  // Start position
-  player.y = getHeight(0, 0) + 3;
-
-  // Generate initial chunks
-  updateChunks();
-
-  // Events
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+  // Pre-build starting chunks synchronously
+  const pcx=Math.floor(px/CS), pcz=Math.floor(pz/CS);
+  for(let dx=-RD;dx<=RD;dx++) for(let dz=-RD;dz<=RD;dz++) buildChunk(pcx+dx,pcz+dz);
 
   // Keyboard
-  window.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
-  window.addEventListener('keyup', e => keys[e.code] = false);
+  addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='Space')e.preventDefault(); });
+  addEventListener('keyup',e=>keys[e.code]=false);
 
-  // Mouse look
-  renderer.domElement.addEventListener('click', () => {
-    if (!document.pointerLockElement) renderer.domElement.requestPointerLock();
+  // Pointer lock
+  ren.domElement.addEventListener('click',()=>{
+    if(!document.pointerLockElement) ren.domElement.requestPointerLock();
   });
-  document.addEventListener('mousemove', e => {
-    if (document.pointerLockElement) {
-      player.yaw -= e.movementX * 0.002;
-      player.pitch -= e.movementY * 0.002;
-      player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch));
+  document.addEventListener('pointerlockchange',()=>{
+    document.getElementById('crosshair').style.display=document.pointerLockElement?'block':'none';
+  });
+  document.addEventListener('mousemove',e=>{
+    if(document.pointerLockElement){
+      yaw-=e.movementX*0.002;
+      pitch-=e.movementY*0.002;
+      pitch=Math.max(-1.3,Math.min(1.3,pitch));
     }
   });
 
-  // Touch look (drag on screen)
-  let touchLookId = null;
-  let lastTouchX = 0, lastTouchY = 0;
-  renderer.domElement.addEventListener('touchstart', e => {
-    // Only handle touches not on controls
-    for (let t of e.changedTouches) {
-      if (t.clientX > window.innerWidth * 0.3 && t.clientX < window.innerWidth * 0.7) {
-        touchLookId = t.identifier;
-        lastTouchX = t.clientX;
-        lastTouchY = t.clientY;
+  // Touch look
+  let tlid=null,tlx=0,tly=0;
+  ren.domElement.addEventListener('touchstart',e=>{
+    for(let t of e.changedTouches){
+      if(t.clientX>innerWidth*0.25&&t.clientX<innerWidth*0.75){
+        tlid=t.identifier;tlx=t.clientX;tly=t.clientY;
       }
     }
   });
-  renderer.domElement.addEventListener('touchmove', e => {
-    for (let t of e.changedTouches) {
-      if (t.identifier === touchLookId) {
-        const dx = t.clientX - lastTouchX;
-        const dy = t.clientY - lastTouchY;
-        player.yaw -= dx * 0.004;
-        player.pitch -= dy * 0.004;
-        player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch));
-        lastTouchX = t.clientX;
-        lastTouchY = t.clientY;
+  ren.domElement.addEventListener('touchmove',e=>{
+    for(let t of e.changedTouches){
+      if(t.identifier===tlid){
+        yaw-=(t.clientX-tlx)*0.004;
+        pitch-=(t.clientY-tly)*0.004;
+        pitch=Math.max(-1.3,Math.min(1.3,pitch));
+        tlx=t.clientX;tly=t.clientY;
       }
     }
   });
-  renderer.domElement.addEventListener('touchend', e => {
-    for (let t of e.changedTouches) {
-      if (t.identifier === touchLookId) touchLookId = null;
-    }
+  ren.domElement.addEventListener('touchend',e=>{
+    for(let t of e.changedTouches) if(t.identifier===tlid) tlid=null;
   });
 
-  // Joystick
   setupJoystick();
-  setupJumpButton();
+  document.getElementById('jmp').addEventListener('touchstart',e=>{e.preventDefault();jprs=true;});
+  document.getElementById('jmp').addEventListener('touchend',()=>jprs=false);
+
+  addEventListener('resize',()=>{
+    cam.aspect=innerWidth/innerHeight;
+    cam.updateProjectionMatrix();
+    ren.setSize(innerWidth,innerHeight);
+  });
 }
 
-function setupJoystick() {
-  const zone = document.getElementById('joystick-zone');
-  const knob = document.getElementById('joystick-knob');
-  let active = false, startX, startY, touchId;
-
-  zone.addEventListener('touchstart', e => {
-    e.preventDefault();
-    const t = e.changedTouches[0];
-    touchId = t.identifier;
-    startX = t.clientX;
-    startY = t.clientY;
-    active = true;
+function setupJoystick(){
+  const zone=document.getElementById('jz'), knob=document.getElementById('jk');
+  let active=false,sx,sy,tid;
+  zone.addEventListener('touchstart',e=>{
+    e.preventDefault();const t=e.changedTouches[0];
+    tid=t.identifier;sx=t.clientX;sy=t.clientY;active=true;
   });
-
-  window.addEventListener('touchmove', e => {
-    if (!active) return;
-    for (let t of e.changedTouches) {
-      if (t.identifier === touchId) {
-        let dx = t.clientX - startX;
-        let dy = t.clientY - startY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const maxDist = 50;
-        if (dist > maxDist) { dx = dx / dist * maxDist; dy = dy / dist * maxDist; }
-        knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-        joystickInput.x = dx / maxDist;
-        joystickInput.y = dy / maxDist;
+  addEventListener('touchmove',e=>{
+    if(!active)return;
+    for(let t of e.changedTouches){
+      if(t.identifier===tid){
+        let dx=t.clientX-sx, dy=t.clientY-sy;
+        const d=Math.sqrt(dx*dx+dy*dy), m=45;
+        if(d>m){dx=dx/d*m;dy=dy/d*m;}
+        knob.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;
+        ji.x=dx/m; ji.y=dy/m;
       }
     }
   });
-
-  window.addEventListener('touchend', e => {
-    for (let t of e.changedTouches) {
-      if (t.identifier === touchId) {
-        active = false;
-        knob.style.transform = 'translate(-50%, -50%)';
-        joystickInput.x = 0;
-        joystickInput.y = 0;
+  addEventListener('touchend',e=>{
+    for(let t of e.changedTouches){
+      if(t.identifier===tid){
+        active=false;knob.style.transform='translate(-50%,-50%)';ji.x=0;ji.y=0;
       }
     }
   });
 }
 
-function setupJumpButton() {
-  const btn = document.getElementById('jump-btn');
-  btn.addEventListener('touchstart', e => { e.preventDefault(); jumpPressed = true; });
-  btn.addEventListener('touchend', () => jumpPressed = false);
+function updateSky(bi){
+  const bm=BIOMES[bi];
+  const cv=document.createElement('canvas');cv.width=2;cv.height=256;
+  const ct=cv.getContext('2d');
+  const gr=ct.createLinearGradient(0,0,0,256);
+  gr.addColorStop(0,'#'+bm.sky[0].toString(16).padStart(6,'0'));
+  gr.addColorStop(1,'#'+bm.sky[1].toString(16).padStart(6,'0'));
+  ct.fillStyle=gr;ct.fillRect(0,0,2,256);
+  if(sc.background&&sc.background.dispose) sc.background.dispose();
+  sc.background=new THREE.CanvasTexture(cv);
 }
 
-function updateBiomeLighting() {
-  // Remove old lights
-  scene.children.filter(c => c.isLight).forEach(l => scene.remove(l));
+// ===================== UPDATE =====================
+function update(){
+  const dt=Math.min(clk.getDelta(),0.05);
 
-  const biome = BIOMES[currentBiome];
-  const ambient = new THREE.AmbientLight(biome.ambientLight, biome.ambientIntensity);
-  scene.add(ambient);
+  // Movement input
+  let mx=0,mz=0;
+  if(keys['KeyW']||keys['ArrowUp'])mz-=1;
+  if(keys['KeyS']||keys['ArrowDown'])mz+=1;
+  if(keys['KeyA']||keys['ArrowLeft'])mx-=1;
+  if(keys['KeyD']||keys['ArrowRight'])mx+=1;
+  mx+=ji.x; mz+=ji.y;
+  const len=Math.sqrt(mx*mx+mz*mz);
+  if(len>1){mx/=len;mz/=len;}
 
-  const dir = new THREE.DirectionalLight(biome.dirLight, biome.dirIntensity);
-  dir.position.set(30, 50, 30);
-  scene.add(dir);
+  const sy=Math.sin(yaw),cy=Math.cos(yaw);
+  const dx2=(mx*cy-mz*sy)*MSPD;
+  const dz2=(mx*sy+mz*cy)*MSPD;
 
-  // Fog
-  scene.fog = new THREE.Fog(biome.fog, 10, biome.fogDist);
-}
-
-function updateSky() {
-  const biome = BIOMES[currentBiome];
-  const canvas = document.createElement('canvas');
-  canvas.width = 2; canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, 0, 256);
-  g.addColorStop(0, '#' + biome.sky[0].toString(16).padStart(6, '0'));
-  g.addColorStop(1, '#' + biome.sky[1].toString(16).padStart(6, '0'));
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 2, 256);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.magFilter = THREE.LinearFilter;
-  scene.background = tex;
-}
-
-// ============================================================
-// UPDATE
-// ============================================================
-function update() {
-  const dt = Math.min(clock.getDelta(), 0.05);
-  const speed = MOVE_SPEED;
-
-  // Input
-  let moveX = 0, moveZ = 0;
-  if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
-  if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
-  if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
-  if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
-
-  // Joystick
-  moveX += joystickInput.x;
-  moveZ += joystickInput.y;
-
-  // Normalize
-  const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
-  if (len > 1) { moveX /= len; moveZ /= len; }
-
-  // Apply movement relative to camera direction
-  const sinY = Math.sin(player.yaw);
-  const cosY = Math.cos(player.yaw);
-  const dx = (moveX * cosY - moveZ * sinY) * speed;
-  const dz = (moveX * sinY + moveZ * cosY) * speed;
-
-  // Try move X
-  if (!isSolid(player.x + dx, player.y - 0.5, player.z) &&
-      !isSolid(player.x + dx, player.y + 0.5, player.z)) {
-    player.x += dx;
-  }
-  // Try move Z
-  if (!isSolid(player.x, player.y - 0.5, player.z + dz) &&
-      !isSolid(player.x, player.y + 0.5, player.z + dz)) {
-    player.z += dz;
-  }
+  // Collision + move
+  const nx=px+dx2, nz=pz+dz2;
+  const fh=height(Math.floor(nx),Math.floor(pz));
+  if(fh<py-0.3) px=nx;
+  const fh2=height(Math.floor(px),Math.floor(nz));
+  if(fh2<py-0.3) pz=nz;
 
   // Gravity
-  player.vy += GRAVITY;
-  player.y += player.vy;
-  player.onGround = false;
-
-  if (isSolid(player.x, player.y - 1, player.z)) {
-    const groundH = getHeight(Math.floor(player.x), Math.floor(player.z));
-    player.y = groundH + 1.8;
-    player.vy = 0;
-    player.onGround = true;
-  }
+  pvy+=GRAV; py+=pvy; onG=false;
+  const gh2=height(Math.floor(px),Math.floor(pz));
+  if(py<=gh2+1.8){py=gh2+1.8;pvy=0;onG=true;}
 
   // Jump
-  if ((keys['Space'] || jumpPressed) && player.onGround) {
-    player.vy = JUMP_VEL;
-    player.onGround = false;
-  }
+  if((keys['Space']||jprs)&&onG){pvy=JVEL;onG=false;}
 
-  // Camera
-  camera.position.set(player.x, player.y + 0.5, player.z);
-  camera.rotation.order = 'YXZ';
-  camera.rotation.y = player.yaw;
-  camera.rotation.x = player.pitch;
+  // Camera (smooth)
+  cam.position.set(px,py+0.3,pz);
+  cam.rotation.order='YXZ';
+  cam.rotation.y=yaw;
+  cam.rotation.x=pitch;
 
-  // Update chunks
+  // Chunks
   updateChunks();
 
-  // Biome check
-  const newBiome = getBiomeAt(Math.floor(player.x), Math.floor(player.z));
-  if (newBiome !== currentBiome) {
-    currentBiome = newBiome;
-    updateBiomeLighting();
-    updateSky();
-    const label = document.getElementById('biome-label');
-    label.textContent = BIOMES[currentBiome].icon + ' ' + BIOMES[currentBiome].name;
-    label.classList.add('show');
-    setTimeout(() => label.classList.remove('show'), 2000);
-    document.getElementById('biome-name').textContent = BIOMES[currentBiome].icon + ' ' + BIOMES[currentBiome].name;
+  // Biome
+  const nb=biomeAt(Math.floor(px),Math.floor(pz));
+  if(nb!==curBiome){
+    curBiome=nb;
+    const bm=BIOMES[nb];
+    sc.fog.color.setHex(bm.fog);sc.fog.far=bm.fd;
+    // Update lights
+    sc.children.forEach(c=>{
+      if(c.isAmbientLight)c.intensity=bm.al;
+      if(c.isDirectionalLight){c.intensity=bm.dl;c.color.setHex(bm.dc);}
+    });
+    updateSky(nb);
+    const pop=document.getElementById('biome-pop');
+    pop.textContent=bm.icon+' '+bm.name;
+    pop.classList.add('show');
+    setTimeout(()=>pop.classList.remove('show'),2000);
+    document.getElementById('bn').textContent=bm.icon+' '+bm.name;
   }
 
-  // Collect gems
-  const time = clock.getElapsedTime();
-  collectibles.forEach(c => {
-    if (c.collected || !c.mesh) return;
-    c.mesh.rotation.y = time * 2;
-    c.mesh.position.y = c.y + Math.sin(time * 3 + c.x) * 0.2;
-    const dist = Math.sqrt((player.x - c.x) ** 2 + (player.y - c.y) ** 2 + (player.z - c.z) ** 2);
-    if (dist < 1.5) {
-      c.collected = true;
-      c.mesh.visible = false;
-      gems++;
-      document.getElementById('gem-count').textContent = gems;
+  // Collectibles
+  const t=clk.getElapsedTime();
+  items.forEach(it=>{
+    if(it.done||!it.mesh)return;
+    if(it.type==='gem') it.mesh.rotation.y=t*2;
+    it.mesh.position.y=it.y+Math.sin(t*2.5+it.x)*0.15;
+    const d=Math.sqrt((px-it.x)**2+(py-it.y)**2+(pz-it.z)**2);
+    if(d<1.8){
+      it.done=true;it.mesh.visible=false;
+      if(it.type==='gem'){gems++;document.getElementById('gc').textContent=gems;}
+      else{rescued++;document.getElementById('ac').textContent=rescued;}
     }
   });
 
-  // Collect animals
-  animals.forEach(a => {
-    if (a.collected || !a.mesh) return;
-    a.mesh.position.y = a.y + Math.sin(time * 2 + a.x * 3) * 0.15;
-    const dist = Math.sqrt((player.x - a.x) ** 2 + (player.y - a.y) ** 2 + (player.z - a.z) ** 2);
-    if (dist < 1.8) {
-      a.collected = true;
-      a.mesh.visible = false;
-      animalsRescued++;
-      document.getElementById('animal-count').textContent = animalsRescued;
-    }
-  });
-
-  // Minimap
-  drawMinimap();
+  // FPS counter
+  fpsC++;
+  if(t-fpsT>1){fpsV=fpsC;fpsC=0;fpsT=t;document.getElementById('fps').textContent=fpsV+' fps';}
 }
 
-function drawMinimap() {
-  const canvas = document.getElementById('minimap-canvas');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, 100, 100);
+function loop(){requestAnimationFrame(loop);update();ren.render(sc,cam);}
 
-  // Draw biome colors
-  for (let dx = -10; dx <= 10; dx++) {
-    for (let dz = -10; dz <= 10; dz++) {
-      const wx = Math.floor(player.x) + dx * 2;
-      const wz = Math.floor(player.z) + dz * 2;
-      const bi = getBiomeAt(wx, wz);
-      const c = BIOMES[bi].groundTop;
-      ctx.fillStyle = '#' + c.toString(16).padStart(6, '0');
-      ctx.fillRect(50 + dx * 4.5, 50 + dz * 4.5, 5, 5);
-    }
-  }
-
-  // Player dot
-  ctx.fillStyle = '#FFD700';
-  ctx.beginPath();
-  ctx.arc(50, 50, 3, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Direction indicator
-  ctx.strokeStyle = '#FFD700';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(50, 50);
-  ctx.lineTo(50 - Math.sin(player.yaw) * 8, 50 - Math.cos(player.yaw) * 8);
-  ctx.stroke();
-}
-
-// ============================================================
-// GAME LOOP
-// ============================================================
-function animate() {
-  requestAnimationFrame(animate);
-  update();
-  renderer.render(scene, camera);
-}
-
-// ============================================================
-// START
-// ============================================================
-document.getElementById('play-btn').addEventListener('click', () => {
-  document.getElementById('menu').style.display = 'none';
-  document.getElementById('hud').style.display = 'flex';
-  init();
-  animate();
+// ===================== START =====================
+document.getElementById('pbtn').addEventListener('click',()=>{
+  document.getElementById('menu').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  init();loop();
 });
 </script>
 </body>
